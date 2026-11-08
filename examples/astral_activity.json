@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "source": "fixture",
+  "account_ref": "example-paper-account",
+  "strategy_ref": 101,
+  "start": "2026-11-06T00:00:00Z",
+  "end": "2026-11-06T21:00:00Z",
+  "lookback_days": 2,
+  "responses": {
+    "accounts": {
+      "tool": "astral_broker_accounts_list",
+      "arguments": {},
+      "received_at": "2026-11-06T21:05:00Z",
+      "result": {
+        "broker_accounts": [
+          {
+            "account_id": "example-paper-account",
+            "account_type": "paper",
+            "provider": "astral_paper",
+            "account_status": "active",
+            "connection_status": "active",
+            "verified": true,
+            "currency": "USD",
+            "active_deployment": {
+              "strategy_id": 101,
+              "active_strategy_id": 202
+            }
+          }
+        ]
+      }
+    },
+    "deployments": {
+      "tool": "astral_deployments_list",
+      "arguments": {},
+      "received_at": "2026-11-06T21:05:00Z",
+      "result": {
+        "status": "ok",
+        "active_strategies": [
+          {
+            "id": 202,
+            "strategy_id": 101,
+            "broker_account_id": "example-paper-account",
+            "execution_mode": "astral_paper",
+            "has_crypto": false,
+            "lifecycle_state": "active",
+            "runtime_health": "ok",
+            "ready_to_trade": true,
+            "assets": [
+              "SPY"
+            ]
+          }
+        ]
+      }
+    },
+    "orders": {
+      "tool": "astral_order_list",
+      "arguments": {
+        "account_id": "example-paper-account",
+        "strategy_id": 101,
+        "limit": 200
+      },
+      "received_at": "2026-11-06T21:05:00Z",
+      "result": {
+        "count": 1,
+        "orders": [
+          {
+            "intent_id": "example-intent",
+            "provider": "astral_paper",
+            "source": "live",
+            "broker_account_id": "example-paper-account",
+            "strategy_id": 101,
+            "symbol": "spy",
+            "side": "buy",
+            "quantity": 2,
+            "status": "FILLED",
+            "dispatch_started_at": "2026-11-06T15:00:00Z",
+            "broker_submit_started_at": "2026-11-06T15:00:01Z",
+            "broker_ack_at": "2026-11-06T15:00:02Z",
+            "terminal_at": "2026-11-06T15:00:02Z",
+            "metadata": {
+              "private_unused": "not included in normalized output"
+            }
+          }
+        ]
+      }
+    },
+    "trades": {
+      "tool": "astral_trade_history",
+      "arguments": {
+        "scope": "strategy",
+        "strategy_id": 101,
+        "lookback_days": 2,
+        "limit": 200,
+        "delivery": "inline"
+      },
+      "received_at": "2026-11-06T21:05:00Z",
+      "result": {
+        "type": "dataset",
+        "name": "trade history",
+        "source": "portfolio:trades",
+        "row_count": 1,
+        "columns": [
+          "source",
+          "source_id",
+          "timestamp_utc",
+          "symbol",
+          "side",
+          "qty",
+          "price",
+          "value",
+          "contract_multiplier",
+          "currency",
+          "strategy_name"
+        ],
+        "delivery": "inline",
+        "rows": [
+          {
+            "source": "paper",
+            "source_id": "101",
+            "timestamp_utc": "2026-11-06T15:00:02Z",
+            "symbol": "SPY",
+            "side": "buy",
+            "qty": 2,
+            "price": 500,
+            "value": 1000,
+            "contract_multiplier": 1,
+            "currency": "USD",
+            "strategy_name": "EXAMPLE ONLY"
+          }
+        ]
+      }
+    }
+  }
+}

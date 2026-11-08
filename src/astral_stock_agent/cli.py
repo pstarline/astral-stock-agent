@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from .delivery import DeliveryError, Outbox, Telegram
 from .report import InvalidSnapshot, render
+from .activity import normalize_activity, render_activity
 
 
 def main(argv=None):
@@ -14,12 +15,23 @@ def main(argv=None):
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--send", action="store_true", help="Send to configured private Telegram destination")
     parser.add_argument("--database", type=Path, help="Existing durable PRIVATE runtime volume path")
+    parser.add_argument("--activity", action="store_true", help="Preview raw MCP activity; never sends")
+    parser.add_argument("--us-symbol", action="append", default=[], help="Independently verified US-equity symbol for activity scope")
     args = parser.parse_args(argv)
     try:
         if args.snapshot.stat().st_size > 1_000_000:
             raise InvalidSnapshot("snapshot too large")
         snapshot = json.loads(args.snapshot.read_text())
         now = datetime.now(timezone.utc)
+        if args.activity:
+            if args.send:
+                raise InvalidSnapshot("unreconciled activity delivery prohibited")
+            if isinstance(snapshot, dict) and snapshot.get("source") == "fixture":
+                now = max(datetime.fromisoformat(x["received_at"].replace("Z", "+00:00"))
+                          for x in snapshot["responses"].values())
+            observation = normalize_activity(snapshot, verified_us_symbols=args.us_symbol, now=now)
+            print(render_activity(observation))
+            return 0
         # Fixtures are preview-only, so the checked-in example remains usable.
         if isinstance(snapshot, dict) and snapshot.get("source") == "fixture" and not args.send:
             now = datetime.fromisoformat(snapshot["collected_at"].replace("Z", "+00:00"))
@@ -40,7 +52,7 @@ def main(argv=None):
         state = outbox.state(key)
         print("Telegram API accepted report" if sent else f"No new attempt; state={state}")
         return 0 if state == "sent" else 2
-    except (OSError, ValueError, sqlite3.Error, DeliveryError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, sqlite3.Error, DeliveryError):
         # Input and URLs can contain credentials. Fail with a fixed message.
         print("Report blocked: invalid input, configuration, or unconfirmed delivery")
         return 2
