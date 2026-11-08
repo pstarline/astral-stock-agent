@@ -8,7 +8,7 @@
 4. 계좌/전략/거래일을 대조하고 누락·페이지 한도·휴장·시세 시점을 검사해 정규화한다.
 5. report.py가 검증하고, delivery.py가 영속 보고 원장 선점 후 Telegram에 전송한다.
 
-**현재 3의 조회 순서와 활동 정규화 코드는 구현했지만, 실제 인증 브리지와 4의 전체 일일 대조·운영 호스트는 미연결**이다. Python의 astral.py는 공식
+**현재 3의 조회 순서/활동 정규화와 4의 예정 정규장 캘린더 검증을 구현했지만, 실제 인증 브리지와 전체 일일 장부 대조·운영 호스트는 미연결**이다. Python의 astral.py는 공식
 structuredContent를 입력받는 선택·검증 함수다. Astral 인증이나 주문 기능을 구현한
 SDK로 오해하지 않는다. API URL을 추측하거나 ChatGPT의 OAuth 토큰을 추출하지 않는다.
 
@@ -69,3 +69,20 @@ Astral 안에 보존하고 저장소에는 출처 링크와 연구 결과만 기
 - https://docs.github.com/en/actions/reference/limits
 - https://core.telegram.org/bots/api#sendmessage
 - https://learn.chatgpt.com/docs/automations
+
+## 정규장 일정 검증
+
+무료 공개 패키지 exchange-calendars 4.13.2의 XNYS 캘린더를 고정 사용한다.
+NYSE 공식 2026~2028 휴장 및 조기 폐장 일정과 대조한 날짜만 지원한다.
+예정 정규장 시간(뉴욕 시간 기준 09:30~16:00 또는 조기 폐장)을 UTC로 변환해 사용한다.
+서머타임은 미국 시간대 일정에 따라 처리한다. 패키지 오류·미지원 날짜에는 평일 규칙으로 대체하지 않는다.
+
+report.render는 선언된 session_verified 값 외에도 폐장 시각을 독립적으로 검사한다.
+collect_session_activity는 최신 종료 거래일 또는 명시한 종료 거래일을 읽기 수집기에 연결한다.
+이 검증은 일일 잔고/주문/체결 대조나 실시간 임시 휴장/심볼 거래 중단의 검증을 대신하지 않는다.
+2029년 이후 사용 전에는 공식 일정 재확인 및 검증 범위 확장이 필요하다.
+
+근거(확인일 2026-11-08):
+- https://www.nyse.com/trade/hours-calendars
+- https://pypi.org/project/exchange_calendars/
+- https://github.com/gerrymanoim/exchange_calendars
