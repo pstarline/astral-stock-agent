@@ -74,8 +74,19 @@ class Outbox:
             db.close()
 
     def enqueue(self, key, body):
+        """Persist an immutable report; identical repeats are idempotent.
+
+        A changed report needs operator reconciliation, even when the previous
+        body is still pending. Never replace its body, reset its state, or
+        silently treat an old sent report as acceptance of the new content.
+        Insert and comparison share one write transaction so competing workers
+        cannot accept different bodies for the same key. Errors omit both.
+        """
         with self._connect() as db:
             db.execute("INSERT OR IGNORE INTO reports VALUES (?, ?, 'pending', NULL)", (key, body))
+            stored = db.execute("SELECT body FROM reports WHERE report_key=?", (key,)).fetchone()
+            if stored is None or stored[0] != body:
+                raise DeliveryError("report content conflict; operator reconciliation required")
 
     def state(self, key):
         with self._connect() as db:

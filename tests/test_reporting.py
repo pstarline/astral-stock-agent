@@ -129,7 +129,7 @@ def test_restart_prevents_duplicate(tmp_path):
     box.enqueue("day", "original")
     assert box.deliver("day", sender)
     box = Outbox(path)
-    box.enqueue("day", "changed")
+    box.enqueue("day", "original")
     assert not box.deliver("day", sender)
     assert sender.calls == 1 and box.state("day") == "sent"
 
