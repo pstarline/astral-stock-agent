@@ -220,3 +220,8 @@ MCP에는 Paper 계정 생성 기능이 없어 사용자에게 Astral 웹 대체
   다음 우선순위는 기존 다음 우선순위 목록의 후보 검증과 공식 원천 연결이다.
 - GPT-Work/GitHub 잔여 사용량과 실제 모델/추론 설정은 조회하지 못했다.
   이번 수정에 사용자 추가 결정은 필요 없다. 운영 비밀 경로 및 실제 배포 승인은 후속 단계다.
+
+- 원격 PR #5: https://github.com/pstarline/astral-stock-agent/pull/5
+  코드 head f13e86620b999faedf2f148e268ed55666f33324의 Python checks
+  42523705050 성공을 확인했다. 최종 문서 갱신 head의 CI도 재확인한 뒤에만 병합한다.
+  병합 결과와 최신 main은 실행 종료 보고에서 구분한다.
