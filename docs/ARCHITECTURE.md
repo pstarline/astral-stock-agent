@@ -8,7 +8,7 @@
 4. 계좌/전략/거래일을 대조하고 누락·페이지 한도·휴장·시세 시점을 검사해 정규화한다.
 5. report.py가 검증하고, delivery.py가 영속 보고 원장 선점 후 Telegram에 전송한다.
 
-**현재 3의 조회 순서/활동 정규화와 4의 예정 정규장 캘린더 검증을 구현했지만, 실제 인증 브리지와 전체 일일 장부 대조·운영 호스트는 미연결**이다. Python의 astral.py는 공식
+**현재 3의 조회 순서/활동 정규화와 4의 예정 정규장 캘린더 검증을 구현했지만, 실제 인증 브리지와 실제 원장 연결·운영 호스트는 미연결**이다. Python의 astral.py는 공식
 structuredContent를 입력받는 선택·검증 함수다. Astral 인증이나 주문 기능을 구현한
 SDK로 오해하지 않는다. API URL을 추측하거나 ChatGPT의 OAuth 토큰을 추출하지 않는다.
 
@@ -86,3 +86,13 @@ collect_session_activity는 최신 종료 거래일 또는 명시한 종료 거�
 - https://www.nyse.com/trade/hours-calendars
 - https://pypi.org/project/exchange_calendars/
 - https://github.com/gerrymanoim/exchange_calendars
+
+## 종가 장부 대조
+
+reconciliation.py는 이전/현재의 정확한 종가 장부, 같은 실행 회차의 기간별 회계 근거와
+실제 연결 ID가 있는 주문/체결을 받아 현금·보유 수량·순손익을 대조한다.
+출처가 불완전한 거래 관측 데이터, 입출금·수수료·기타 수익 누락, 다른 실행 회차나
+전 거래일 누락을 임의 보정하지 않는다. 계산 검증과 원천 확보/진위 검증은 별개다.
+이 단계의 내부 session_accounting 계약을 Astral의 새 API로 주장하지 않는다.
+현재 조회한 이벤트 로그/거래 이력만으로 이 입력을 완성할 수 있다고 검증하지 못했다.
+합성 예제 미리보기는 전송하지 않는다. 미국 주식용 Paper 대상과 공식 원장 연결이 다음 우선순위다.
