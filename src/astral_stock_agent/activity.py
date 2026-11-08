@@ -12,6 +12,7 @@ from math import ceil
 
 from .astral import AstralBoundaryError, paper_deployment
 from .report import InvalidSnapshot, money, symbol, text, timestamp
+from .sessions import latest_closed_session, require_closed_session
 
 
 LIMIT = 200
@@ -210,14 +211,40 @@ async def collect_activity(call_tool, *, account_ref, strategy_ref, verified_us_
     return normalize_activity(bundle, verified_us_symbols=verified_us_symbols, now=clock())
 
 
+async def collect_session_activity(call_tool, *, account_ref, strategy_ref,
+                                   verified_us_symbols, trading_day=None, clock=None):
+    """Select a closed core session, then use the existing read-only collector.
+
+    Explicit holidays and not-yet-closed dates fail before any MCP call. Without
+    a date, select the latest completed session; never relabel it as today's.
+    """
+    clock = clock or (lambda: datetime.now(timezone.utc))
+    now = clock()
+    session = (latest_closed_session(now) if trading_day is None
+               else require_closed_session(trading_day, now))
+    # Activity intervals are end-exclusive. Include an execution exactly at
+    # the scheduled closing auction, without extending to after-hours trading.
+    end = session.closes_at + timedelta(microseconds=1)
+    observation = await collect_activity(call_tool, account_ref=account_ref,
+        strategy_ref=strategy_ref, verified_us_symbols=verified_us_symbols,
+        start=session.opens_at, end=end, clock=clock)
+    observation["session"] = {"calendar": "XNYS", "trading_day": session.day.isoformat(),
+        "opens_at": session.opens_at.isoformat(), "closes_at": session.closes_at.isoformat()}
+    return observation
+
+
 def render_activity(observation):
     prefix = "[검증용 예제 · 실제 거래 기록 아님]\n" if observation["source"] == "fixture" else ""
     lines = [prefix + "[Astral Paper 조회 관측 · 일일 보고 미완성]",
              f"조회 구간: {observation['start']} ~ {observation['end']} (끝 시각 제외)",
              f"조회된 주문: {len(observation['orders'])}건",
              f"조회된 거래 기록: {len(observation['observed_trades'])}건",
-             "주문-체결 연결: 미검증 / 잔고·손익·휴장 확인: 미완료",
+             "주문-체결 연결: 미검증 / 잔고·손익 대조: 미완료",
              "기록이 없어도 당일 전체 체결이 없었다고 확정하지 않습니다."]
+    if observation.get("session"):
+        lines.insert(1, f"NYSE 정규장 거래일: {observation['session']['trading_day']} (예정 일정 검증)")
+    else:
+        lines.insert(1, "거래소 세션: 미검증 (임의 조회 구간)")
     for order in observation["orders"]:
         lines.append(f"주문 상태: {order['symbol']} {order['side']} {order['status']} / 요청 {order['requested_quantity']}주")
     for trade in observation["observed_trades"]:

@@ -12,6 +12,8 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
+from .sessions import SessionError, require_closed_session
+
 
 class InvalidSnapshot(ValueError):
     pass
@@ -68,14 +70,14 @@ def rows(snapshot, field):
 def render(snapshot, *, now=None):
     """Validate before rendering. Unknown P&L remains explicitly unknown.
 
-    Collector must provide a completed US session from an exchange calendar.
-    Weekday validation alone does NOT establish an exchange trading session.
+    A scheduled NYSE core session is independently checked here.
+    This does not establish real-time market status or accounting completeness.
     All orders/fills are this trading day's records, positions are end-of-day.
     """
     now = now or datetime.now(timezone.utc)
     try:
         return _render(snapshot, now)
-    except (KeyError, TypeError, AttributeError, InvalidOperation):
+    except (KeyError, TypeError, AttributeError, InvalidOperation, SessionError):
         raise InvalidSnapshot("missing or invalid snapshot fields") from None
 
 
@@ -100,8 +102,9 @@ def _render(s, now):
     if day.weekday() >= 5 or day > now.astimezone(ZoneInfo("America/New_York")).date():
         raise InvalidSnapshot("invalid trading day")
     closed = timestamp(s["session_closed_at"])
-    if closed.astimezone(ZoneInfo("America/New_York")).date() != day or closed > collected:
-        raise InvalidSnapshot("session not closed")
+    session = require_closed_session(day, collected)
+    if closed != session.closes_at:
+        raise InvalidSnapshot("session close disagrees with NYSE calendar")
     valuation = timestamp(s["valuation_at"])
     if not closed - timedelta(minutes=30) <= valuation <= collected:
         raise InvalidSnapshot("stale valuation")
@@ -183,8 +186,8 @@ def _render(s, now):
         if qty <= 0 or price <= 0:
             raise InvalidSnapshot("nonpositive execution")
         executed = timestamp(fill["executed_at"])
-        if executed > collected or executed.astimezone(ZoneInfo("America/New_York")).date() != day:
-            raise InvalidSnapshot("fill outside trading day")
+        if executed > collected or not session.opens_at <= executed <= session.closes_at:
+            raise InvalidSnapshot("fill outside core trading session")
         by_order[oid] = order, declared, total + qty
         lines.append(f"  {order['symbol']} {order['side']} {qty}주 @ ${price:,.2f}")
     if any(declared != total for _, declared, total in by_order.values()):
