@@ -1,0 +1,116 @@
+{
+  "previous": {
+    "schema_version": 1,
+    "source": "fixture",
+    "mode": "astral_paper",
+    "asset_class": "us_equity",
+    "currency": "USD",
+    "complete": true,
+    "session_verified": true,
+    "trading_day": "2026-11-05",
+    "session_closed_at": "2026-11-05T21:00:00Z",
+    "valuation_at": "2026-11-05T21:00:00Z",
+    "collected_at": "2026-11-05T21:05:00Z",
+    "account_ref": "example-paper-account",
+    "deployment_ref": "example-deployment",
+    "strategy_ref": "example-spy-candidate",
+    "strategy_name": "EXAMPLE ONLY — SPY candidate",
+    "equity_usd": "1000",
+    "cash_usd": "1000",
+    "available_cash_usd": "1000",
+    "daily_realized_pnl_usd": null,
+    "daily_unrealized_change_usd": null,
+    "cumulative_realized_pnl_usd": "0",
+    "unrealized_pnl_usd": "0",
+    "positions": [],
+    "orders": [],
+    "fills": [],
+    "health": "테스트 예제. 운영 배포·위험 한도 미설정. 신규 주문 불가.",
+    "run_ref": "example-run"
+  },
+  "current": {
+    "schema_version": 1,
+    "source": "fixture",
+    "mode": "astral_paper",
+    "asset_class": "us_equity",
+    "currency": "USD",
+    "complete": true,
+    "session_verified": true,
+    "trading_day": "2026-11-06",
+    "session_closed_at": "2026-11-06T21:00:00Z",
+    "valuation_at": "2026-11-06T21:00:00Z",
+    "collected_at": "2026-11-06T21:05:00Z",
+    "account_ref": "example-paper-account",
+    "deployment_ref": "example-deployment",
+    "strategy_ref": "example-spy-candidate",
+    "strategy_name": "EXAMPLE ONLY — SPY candidate",
+    "equity_usd": "1027",
+    "cash_usd": "907",
+    "available_cash_usd": "907",
+    "daily_realized_pnl_usd": null,
+    "daily_unrealized_change_usd": null,
+    "cumulative_realized_pnl_usd": "8",
+    "unrealized_pnl_usd": "19",
+    "positions": [
+      {
+        "symbol": "SPY",
+        "quantity": "1",
+        "market_value_usd": "120"
+      }
+    ],
+    "orders": [
+      {
+        "order_ref": "example-buy",
+        "symbol": "SPY",
+        "side": "buy",
+        "status": "filled",
+        "quantity": "2",
+        "filled_quantity": "2"
+      },
+      {
+        "order_ref": "example-sell",
+        "symbol": "SPY",
+        "side": "sell",
+        "status": "filled",
+        "quantity": "1",
+        "filled_quantity": "1"
+      }
+    ],
+    "fills": [
+      {
+        "fill_ref": "example-buy-fill",
+        "order_ref": "example-buy",
+        "quantity": "2",
+        "price_usd": "100",
+        "executed_at": "2026-11-06T15:00:00Z"
+      },
+      {
+        "fill_ref": "example-sell-fill",
+        "order_ref": "example-sell",
+        "quantity": "1",
+        "price_usd": "110",
+        "executed_at": "2026-11-06T16:00:00Z"
+      }
+    ],
+    "health": "합성 예제: 장부 대조만 검증. 실제 운영·체결 아님.",
+    "run_ref": "example-run"
+  },
+  "accounting": {
+    "kind": "session_accounting",
+    "source": "fixture",
+    "mode": "astral_paper",
+    "currency": "USD",
+    "complete": true,
+    "pnl_basis": "net_of_execution_fees",
+    "start_at": "2026-11-05T21:00:00Z",
+    "end_at": "2026-11-06T21:00:00Z",
+    "collected_at": "2026-11-06T21:05:00Z",
+    "net_capital_flow_usd": "0",
+    "net_other_income_usd": "0",
+    "execution_fees_usd": "3",
+    "account_ref": "example-paper-account",
+    "deployment_ref": "example-deployment",
+    "strategy_ref": "example-spy-candidate",
+    "run_ref": "example-run"
+  }
+}

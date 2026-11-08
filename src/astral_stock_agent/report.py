@@ -125,6 +125,13 @@ def _render(s, now):
              f"가용 현금: {available_text}"]
     if s["source"] == "fixture":
         lines.insert(0, "[검증용 예제 · 실제 거래 기록 아님]")
+    if "daily_total_pnl_usd" in s:
+        lines.append(f"당일 총손익 (자금 유출입 제외): ${money(s['daily_total_pnl_usd']):,.2f}")
+        for field, label in (("daily_net_capital_flow_usd", "순자금 유입"),
+                             ("daily_other_income_usd", "기타 순수익"),
+                             ("daily_execution_fees_usd", "체결 수수료 (손익에 반영됨)")):
+            value = money(s[field], nonnegative=(field == "daily_execution_fees_usd"))
+            lines.append(f"{label}: ${value:,.2f}")
     for key, label in (("daily_realized_pnl_usd", "당일 실현 손익"),
                        ("daily_unrealized_change_usd", "당일 미실현 손익 변화"),
                        ("cumulative_realized_pnl_usd", "누적 실현 손익"),
