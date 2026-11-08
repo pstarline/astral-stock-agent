@@ -16,6 +16,7 @@
   "strategy_name": "EXAMPLE ONLY — SPY candidate",
   "equity_usd": "10000.00",
   "cash_usd": "10000.00",
+  "available_cash_usd": "10000.00",
   "daily_realized_pnl_usd": null,
   "daily_unrealized_change_usd": null,
   "cumulative_realized_pnl_usd": null,

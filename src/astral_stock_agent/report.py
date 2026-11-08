@@ -109,9 +109,17 @@ def _render(s, now):
     scope = [text(s[k]) for k in ("account_ref", "deployment_ref", "strategy_ref")]
     name = text(s["strategy_name"])
     equity, cash = (money(s[k], nonnegative=True) for k in ("equity_usd", "cash_usd"))
+    available = s["available_cash_usd"]
+    available_text = "미확인"
+    if available is not None:
+        available = money(available, nonnegative=True)
+        if available > cash:
+            raise InvalidSnapshot("available cash exceeds ledger cash")
+        available_text = f"${available:,.2f}"
     lines = ["[Astral 미국 주식 · 모의매매]", f"거래일: {day} (미국 동부)",
              f"보고 시각: {now.astimezone(ZoneInfo('Asia/Seoul')).isoformat(timespec='seconds')}",
-             f"전략: {name}", f"계좌 평가액: ${equity:,.2f} / 가용 현금: ${cash:,.2f}"]
+             f"전략: {name}", f"계좌 평가액: ${equity:,.2f} / 현금 잔액: ${cash:,.2f}",
+             f"가용 현금: {available_text}"]
     if s["source"] == "fixture":
         lines.insert(0, "[검증용 예제 · 실제 거래 기록 아님]")
     for key, label in (("daily_realized_pnl_usd", "당일 실현 손익"),

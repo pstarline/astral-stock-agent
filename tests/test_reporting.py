@@ -27,6 +27,22 @@ def test_fixture_is_labelled_and_unknown_is_not_zero(snapshot):
     assert "당일 실현 손익: 미확인" in body
 
 
+def test_reserved_cash_is_not_reported_as_available(snapshot):
+    snapshot["available_cash_usd"] = "9000"
+    _, body = report(snapshot)
+    assert "현금 잔액: $10,000.00" in body
+    assert "가용 현금: $9,000.00" in body
+    snapshot["available_cash_usd"] = None
+    assert "가용 현금: 미확인" in report(snapshot)[1]
+
+
+@pytest.mark.parametrize("value", ["10001", "-1"])
+def test_available_cash_must_be_within_paper_cash(snapshot, value):
+    snapshot["available_cash_usd"] = value
+    with pytest.raises(InvalidSnapshot):
+        report(snapshot)
+
+
 @pytest.mark.parametrize("field,value", [
     ("mode", "full_broker"), ("asset_class", "crypto"), ("currency", "EUR"),
     ("source", "untrusted"), ("schema_version", True), ("complete", False),
