@@ -304,3 +304,7 @@ MCP에는 Paper 계정 생성 기능이 없어 사용자에게 Astral 웹 대체
   이번 변경은 순수 연구 검증 모듈·합성 테스트·본 문서뿐이다. 추가 유료 서비스는 없다.
   잔여 사용량과 실제 모델/추론 수준은 확인하지 못했다. 이번 코드 작업에 추가 사용자 결정은 없다.
   실제 배포 승인과 안전한 운영 비밀 경로는 후속 단계다.
+
+- 원격 PR #7: https://github.com/pstarline/astral-stock-agent/pull/7
+  코드 head d11bd84129b515b66e42d8adb1b67d05eb5dfaa5의 Python checks
+  42533977117 성공을 확인했다. 최종 문서 갱신 head의 CI도 별도로 재확인한 뒤 병합한다.
