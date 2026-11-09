@@ -21,6 +21,17 @@ class HypotheticalFill:
 
 
 @dataclass(frozen=True)
+class HypotheticalDailyMark:
+    """Scheduled bar-close mark, indexed into the supplied research history."""
+    bar_index: int
+    cash: Decimal
+    units: Decimal
+    close: Decimal
+    equity: Decimal
+    close_drawdown_fraction: Decimal
+
+
+@dataclass(frozen=True)
 class PriceOnlySimulation:
     cash: Decimal
     units: Decimal
@@ -33,6 +44,8 @@ class PriceOnlySimulation:
     signal_causality_verified: bool = False
     corporate_actions_verified: bool = False
     deployment_approved: bool = False
+    daily_marks: tuple[HypotheticalDailyMark, ...] = ()
+    max_close_drawdown_fraction: Decimal = Decimal(0)
 
 
 def _decimal(value):
@@ -53,8 +66,11 @@ def simulate_next_open(history, unit_changes, *, initial_cash, commission_bps,
 
     All decisions, hypothetical cash and costs must be explicit. Units cannot
     go short and cash cannot go negative; insufficient resources reject the
-    simulation rather than inventing partial fills. The final close is a mark,
-    not a sell. Dividends, splits, spread variability, liquidity, fractional-unit
+    simulation rather than inventing partial fills. Each scheduled close is
+    marked, including no-trade sessions. Drawdown is relative to the running
+    peak (including initial cash), as a fraction, not percent. It does not
+    measure intraday or opening-gap drawdown or approve a risk threshold.
+    The final close is a mark, not a sell. Dividends, splits, spread variability, liquidity, fractional-unit
     restrictions, taxes and actual broker timing are not modeled. Calendar
     coverage is required. Caller-supplied signals may still contain future
     information: this function cannot certify their origin or strategy quality.
@@ -84,20 +100,29 @@ def simulate_next_open(history, unit_changes, *, initial_cash, commission_bps,
     try:
         # Isolate arithmetic from the caller's ambient Decimal precision.
         with localcontext(Context(prec=28)):
+            marks = [HypotheticalDailyMark(0, cash, units, _decimal(history.bars[0].close),
+                                           cash, Decimal(0))]
+            peak, max_drawdown = starting_cash, Decimal(0)
             for index in range(1, len(history.bars)):
                 change = changes[index - 1]
-                if not change:
-                    continue
-                price = _decimal(history.bars[index].open) * (1 + (slip if change > 0 else -slip) / 10000)
-                fee = abs(change) * price * commission / 10000
-                next_cash = cash - change * price - fee
-                next_units = units + change
-                if next_cash < 0 or next_units < 0:
-                    raise ResearchDataError('hypothetical cash or holdings insufficient')
-                cash, units = next_cash, next_units
-                fees += fee
-                fills.append(HypotheticalFill(index - 1, index, change, price, fee))
-            equity = cash + units * _decimal(history.bars[-1].close)
-            return PriceOnlySimulation(cash, units, equity, equity - starting_cash, fees, tuple(fills))
+                if change:
+                    price = _decimal(history.bars[index].open) * (1 + (slip if change > 0 else -slip) / 10000)
+                    fee = abs(change) * price * commission / 10000
+                    next_cash = cash - change * price - fee
+                    next_units = units + change
+                    if next_cash < 0 or next_units < 0:
+                        raise ResearchDataError('hypothetical cash or holdings insufficient')
+                    cash, units = next_cash, next_units
+                    fees += fee
+                    fills.append(HypotheticalFill(index - 1, index, change, price, fee))
+                close = _decimal(history.bars[index].close)
+                equity = cash + units * close
+                peak = max(peak, equity)
+                drawdown = (peak - equity) / peak
+                max_drawdown = max(max_drawdown, drawdown)
+                marks.append(HypotheticalDailyMark(index, cash, units, close, equity, drawdown))
+            equity = marks[-1].equity
+            return PriceOnlySimulation(cash, units, equity, equity - starting_cash, fees, tuple(fills),
+                                       daily_marks=tuple(marks), max_close_drawdown_fraction=max_drawdown)
     except DecimalException:
         raise ResearchDataError('research calculation failed') from None

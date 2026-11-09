@@ -204,6 +204,19 @@ order의 `sizing_type=fixed_shares`와 `sizing_value`다. 수량을 생략하면
 `full_strategy_parity_verified`, `deployment_approved`, `new_orders_allowed`는
 항상 false다. 기존 체결 모드 검증기를 완화하지 않으며, 이전 손실 후보의 보류도 유지한다.
 
+## 연구용 일별 평가액과 낙폭
+
+`simulate_next_open`은 모든 검증된 거래일 종가에 현금·보유 수량·평가액을 기록한다.
+`daily_marks`의 `bar_index`는 입력 일봉의 인덱스이며 실제 체결 시각이 아니다.
+평가액은 현금 + 수량 × 종가다. 가정한 수수료와 불리한 슬리피지는 현금에 한 번 반영한다.
+거래 없는 날과 매도 후 현금만 남은 날도 기록하고, 마지막 보유분은 강제 청산하지 않는다.
+
+`max_close_drawdown_fraction`은 초기 가상 현금 및 이후 종가 평가액의 누적 최고점 대비
+하락률의 최댓값이다. 0.5는 50%다. 같은 날의 고가/저가·시가 갭·거래 중 최대 손실을
+측정하지 않으며, 가상 시작 현금과 주문 수량에 따라 값이 달라진다.
+배당·분할 등은 여전히 미검증이다. 이 가격 기반 연구 수치는 실제 Paper 손익이나
+전체 전략 동등성·위험 한도 승인·배포 적합성의 증거가 아니다. 자동 합격 기준은 없다.
+
 ## 다음 작업
 
 [프로젝트 상태](docs/STATUS.md), [아키텍처](docs/ARCHITECTURE.md),
