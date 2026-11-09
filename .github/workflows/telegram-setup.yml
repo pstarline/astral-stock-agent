@@ -1,0 +1,131 @@
+name: Telegram setup (manual only)
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: telegram-setup
+  cancel-in-progress: false
+jobs:
+  setup:
+    if: github.repository == 'pstarline/astral-stock-agent' && github.ref == 'refs/heads/main' && github.actor == 'pstarline' && github.triggering_actor == 'pstarline'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      # No checkout, third-party actions, dependencies, trading data or artifacts.
+      - name: Return setup ID through the bot's private chat
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import time
+          from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+          class SetupError(Exception):
+              pass
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  raise SetupError()
+
+          def api(token, method, payload):
+              request = Request(
+                  'https://api.telegram.org/bot' + token + '/' + method,
+                  data=json.dumps(payload).encode('utf-8'),
+                  headers={'Content-Type': 'application/json'}, method='POST',
+              )
+              with build_opener(NoRedirect()).open(request, timeout=10) as response:
+                  raw = response.read(65537)
+              if len(raw) > 65536:
+                  raise SetupError()
+              result = json.loads(raw)
+              if not isinstance(result, dict) or result.get('ok') is not True or 'result' not in result:
+                  raise SetupError()
+              return result['result']
+
+          def positive_id(value):
+              return type(value) is int and 0 < value < 2**52
+
+          def select_chat(updates, username, now):
+              if not isinstance(updates, list) or len(updates) >= 100:
+                  raise SetupError()
+              candidates = set()
+              for update in updates:
+                  if not isinstance(update, dict):
+                      raise SetupError()
+                  message = update.get('message')
+                  if not isinstance(message, dict):
+                      continue
+                  if message.get('text') not in ('/astral_setup', '/astral_setup@' + username):
+                      continue
+                  if any(key in message for key in ('forward_origin', 'forward_from', 'forward_from_chat', 'forward_sender_name', 'forward_date', 'via_bot', 'sender_chat', 'business_connection_id')):
+                      continue
+                  sender, chat = message.get('from'), message.get('chat')
+                  if not isinstance(sender, dict) or not isinstance(chat, dict):
+                      continue
+                  date = message.get('date')
+                  if type(date) is not int or not 0 <= now - date <= 600:
+                      continue
+                  if sender.get('is_bot') is not False or chat.get('type') != 'private':
+                      continue
+                  chat_id = chat.get('id')
+                  if positive_id(chat_id) and type(sender.get('id')) is int and sender['id'] == chat_id:
+                      candidates.add(chat_id)
+              if len(candidates) != 1:
+                  raise SetupError()
+              return candidates.pop()
+
+          def main():
+              # Independent runtime guards also protect manual reruns.
+              expected = {
+                  'GITHUB_ACTIONS': 'true', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+                  'GITHUB_REPOSITORY': 'pstarline/astral-stock-agent',
+                  'GITHUB_REF': 'refs/heads/main', 'GITHUB_ACTOR': 'pstarline',
+                  'GITHUB_TRIGGERING_ACTOR': 'pstarline',
+              }
+              if any(os.environ.get(key) != value for key, value in expected.items()):
+                  raise SetupError()
+              token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+              if not re.fullmatch(r'[0-9]+:[A-Za-z0-9_-]{20,}', token):
+                  raise SetupError()
+              webhook = api(token, 'getWebhookInfo', {})
+              if not isinstance(webhook, dict) or webhook.get('url') != '':
+                  raise SetupError()
+              bot = api(token, 'getMe', {})
+              if not isinstance(bot, dict) or bot.get('is_bot') is not True or not positive_id(bot.get('id')):
+                  raise SetupError()
+              username = bot.get('username')
+              if not isinstance(username, str) or not re.fullmatch(r'[A-Za-z0-9_]{5,32}', username):
+                  raise SetupError()
+              # No offset: do not acknowledge/delete pending updates. No allowed_updates mutation.
+              updates = api(token, 'getUpdates', {'timeout': 0, 'limit': 100})
+              chat_id = select_chat(updates, username, int(time.time()))
+              text = (
+                  'Astral 설정 안내 · 거래 보고가 아닙니다.\n'
+                  'TELEGRAM_CHAT_ID: ' + str(chat_id) + '\n'
+                  'GitHub의 astral-stock-agent → Settings → Secrets and variables → Actions에서 '
+                  'TELEGRAM_CHAT_ID라는 Secret으로 숫자만 등록하세요.\n'
+                  '이 작업은 수신 대상을 저장하거나 자동 보고를 활성화하지 않습니다.'
+              )
+              sent = api(token, 'sendMessage', {
+                  'chat_id': chat_id, 'text': text, 'protect_content': True,
+                  'disable_notification': True,
+              })
+              if not isinstance(sent, dict) or not positive_id(sent.get('message_id')):
+                  raise SetupError()
+              sent_chat = sent.get('chat')
+              if not isinstance(sent_chat, dict) or sent_chat.get('type') != 'private' or type(sent_chat.get('id')) is not int or sent_chat['id'] != chat_id:
+                  raise SetupError()
+              print('설정 안내 API 승인 확인. 실제 수신은 Telegram에서 확인하세요.')
+
+          if __name__ == '__main__':
+              try:
+                  main()
+              except Exception:
+                  # Never print API errors/URLs, updates, IDs or credentials. Never retry a send.
+                  print('설정 안내 완료를 확인하지 못했습니다. 자동 재시도하지 않습니다.')
+                  raise SystemExit(2) from None
+          PY

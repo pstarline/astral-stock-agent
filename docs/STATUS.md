@@ -816,3 +816,36 @@ MCP에는 Paper 계정 생성 기능이 없어 사용자에게 Astral 웹 대체
 https://core.telegram.org/bots/api#getchat, https://core.telegram.org/bots/api#chatfullinfo,
 https://heyastral.ai/docs/backtesting, https://heyastral.ai/docs/mcp,
 https://heyastral.ai/docs/alerts-notifications
+
+## 이번 실행 — Telegram Secret 등록 이후 초기 설정 제안 (2026-11-09 KST)
+
+- 시작 main dcb726d51dee48f98b71ab1150d17587eb318286, 열린 PR 0개.
+  PR #20 병합과 해당 main의 test 성공(42597504219)을 직접 확인했다.
+  로컬 기준 파일 전체의 blob SHA가 최신 원격 tree와 일치함을 확인하고 별도 worktree를 썼다.
+  기존 미커밋 작업과 auto-stock은 변경하지 않았다.
+- 사용자는 앞선 안내에 따라 TELEGRAM_BOT_TOKEN Actions Secret 등록을 완료했다고 알렸다.
+  Secret 등록 여부/값을 연결 앱으로 직접 검증한 것은 아니다. 현재 Work의 두 Telegram
+  환경변수는 모두 미설정이다. GitHub Secret이 Work에 자동 주입되는 것으로 처리하지 않는다.
+- 이전 안내와 비공개 운영 정책의 불일치를 알리고, 설정 전용 수동 작업을 검토안으로 작성했다.
+  사용자 승인 전 **병합/실행 금지**다. 실제 봇 조회·전송·Secret 읽기를 하지 않았다.
+  기존 무비밀 CI와 운영 CLI 차단·비공개 영속 원장 요구는 유지했다.
+- 제안은 소유자 main 수동 실행만 허용하고 checkout/외부 액션/설치/아티팩트/쓰기 권한이 없다.
+  webhook/getMe/최근 updates를 읽고 10분 이내 직접 입력한 /astral_setup이 있는 개인 대화가
+  하나일 때만 설정 ID 안내를 같은 대화로 보낸다. 자동 저장·보고·재시도·배포·주문은 없다.
+  최근 메시지 응답은 다른 대화도 포함할 수 있어 이 조회 범위를 승인 설명에 포함한다.
+  토큰/ID/원문/오류 URL은 로그에 출력하지 않으며 웹훅/큐 확인 offset/구독 필터도 변경하지 않는다.
+- 가짜 HTTP/환경으로 신규 42개 검사, Python3.11.17 전체 **665 passed**, compileall/공백 검사 통과.
+  기존 pandas 경고4개는 동일하다. 오발송/전달/그룹/봇/모호한 다중 대화/오래된 명령/큐 상한/
+  브랜치·실행자 우회/기존 웹훅/시간초과 재시도/리디렉션/원문 오류 노출을 검사했다.
+  실제 실행 성공·Secret 유효성·수신 검증이 아니며 외부 독립 에이전트 리뷰는 수행하지 않았다.
+- MVP/전체 상태는 미완료다. 검증 미국 주식 전략/승인 후 배포·공식 회계 원천·비공개 영속
+  운영 호스트·Telegram 실제 수신이 남았다. 이번 제안만으로 일일 보고 운영이 가능해지지 않는다.
+  다음은 사용자에게 설정 전용 Public Actions 예외 승인을 받은 뒤 실제 연결과 수신 대상을 확인하는 일이다.
+  적합 전략 배포는 별도 미리보기 승인 단계이며 기존 연구 회계 문제의 보류도 유지한다.
+- 신규 결제/실제 전송/백테스트는 모두0회다. GPT-Work/GitHub 잔여량과 모델/추론 고정은 미확인이다.
+  예약 설정은 변경하지 않았다. 최종 PR head CI 결과와 사용자 승인 상태는 원격에서 별도 확인한다.
+
+근거: https://core.telegram.org/bots/api#getupdates,
+https://core.telegram.org/bots/api#sendmessage,
+https://docs.github.com/en/actions/concepts/security/secrets,
+https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow
