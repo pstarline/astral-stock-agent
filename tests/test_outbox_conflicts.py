@@ -13,28 +13,28 @@ from astral_stock_agent.cli import main
 @pytest.mark.parametrize('state', ['pending', 'sending', 'sent', 'unknown'])
 def test_changed_content_blocked_without_mutating_record(tmp_path, state):
     path = tmp_path / 'reports.sqlite'
-    box = Outbox(path)
+    box = Outbox(path, create=True)
     box.enqueue('private-key', 'original-private-body')
     with sqlite3.connect(path) as db:
         db.execute('UPDATE reports SET state=?, message_id=?', (state, '42' if state == 'sent' else None))
         before = db.execute('SELECT * FROM reports').fetchall()
     # Reopen to exercise persisted conflicts, not in-memory tracking.
     with pytest.raises(DeliveryError) as exc:
-        Outbox(path).enqueue('private-key', 'new-private-body')
+        Outbox(path, create=True).enqueue('private-key', 'new-private-body')
     assert str(exc.value) == 'report content conflict; operator reconciliation required'
     with sqlite3.connect(path) as db:
         assert db.execute('SELECT * FROM reports').fetchall() == before
-    Outbox(path).enqueue('private-key', 'original-private-body')
+    Outbox(path, create=True).enqueue('private-key', 'original-private-body')
     assert box.state('private-key') == state
 
 
 def test_two_workers_cannot_accept_conflicting_content(tmp_path):
     path = tmp_path / 'reports.sqlite'
-    Outbox(path)
+    Outbox(path, create=True)
     gate = Barrier(2)
 
     def enqueue(body):
-        box = Outbox(path)
+        box = Outbox(path, create=True)
         gate.wait(timeout=10)
         try:
             box.enqueue('same-day', body)
@@ -54,7 +54,7 @@ def test_two_workers_cannot_accept_conflicting_content(tmp_path):
 def test_cli_conflict_never_calls_sender_or_claims_success(tmp_path, monkeypatch, capsys, state):
     import astral_stock_agent.cli as cli
     path = tmp_path / 'reports.sqlite'
-    box = Outbox(path)
+    box = Outbox(path, create=True)
     box.enqueue('same-day', 'old-report')
     with sqlite3.connect(path) as db:
         db.execute('UPDATE reports SET state=?', (state,))
@@ -80,7 +80,7 @@ def test_cli_conflict_never_calls_sender_or_claims_success(tmp_path, monkeypatch
 
 
 def test_distinct_keys_do_not_conflict(tmp_path):
-    box = Outbox(tmp_path / 'reports.sqlite')
+    box = Outbox(tmp_path / 'reports.sqlite', create=True)
     box.enqueue('first-day', 'first-report')
     box.enqueue('second-day', 'second-report')
     assert box.state('first-day') == box.state('second-day') == 'pending'

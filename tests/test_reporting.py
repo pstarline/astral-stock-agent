@@ -124,11 +124,11 @@ class Sender:
 
 def test_restart_prevents_duplicate(tmp_path):
     path = tmp_path / "reports.sqlite"
-    box = Outbox(path)
+    box = Outbox(path, create=True)
     sender = Sender()
     box.enqueue("day", "original")
     assert box.deliver("day", sender)
-    box = Outbox(path)
+    box = Outbox(path, create=True)
     box.enqueue("day", "original")
     assert not box.deliver("day", sender)
     assert sender.calls == 1 and box.state("day") == "sent"
@@ -136,15 +136,15 @@ def test_restart_prevents_duplicate(tmp_path):
 
 def test_concurrent_workers_only_one_attempt(tmp_path):
     path = tmp_path / "reports.sqlite"
-    Outbox(path).enqueue("day", "report")
+    Outbox(path, create=True).enqueue("day", "report")
     sender = Sender()
     with ThreadPoolExecutor(max_workers=4) as pool:
-        results = list(pool.map(lambda _: Outbox(path).deliver("day", sender), range(4)))
+        results = list(pool.map(lambda _: Outbox(path, create=True).deliver("day", sender), range(4)))
     assert sum(results) == 1 and sender.calls == 1
 
 
 def test_timeout_and_crash_are_not_retried(tmp_path):
-    box = Outbox(tmp_path / "reports.sqlite")
+    box = Outbox(tmp_path / "reports.sqlite", create=True)
 
     class Timeout:
         def send(self, body):
