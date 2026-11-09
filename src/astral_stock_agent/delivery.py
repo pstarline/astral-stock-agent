@@ -5,6 +5,9 @@ reconciliation. This favors avoiding duplicates over guaranteed delivery.
 """
 
 import json
+import os
+import stat
+from pathlib import Path
 import re
 import sqlite3
 from contextlib import contextmanager
@@ -55,17 +58,89 @@ class Telegram:
 
 
 class Outbox:
-    def __init__(self, path):
-        self.path = str(path)
+    def __init__(self, path, *, create=False):
+        # Creation is an explicit bootstrap action, never an implicit restart.
+        if type(create) is not bool:
+            raise DeliveryError("explicit outbox initialization flag required")
+        # This verifies local POSIX privacy, not volume persistence/backups.
+        self.path = str(Path(os.path.abspath(os.fspath(path))))
+        self._check_directory()
+        if create:
+            try:
+                fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+            except FileExistsError:
+                pass
+            except OSError:
+                raise DeliveryError("private outbox storage unavailable") from None
+            else:
+                os.close(fd)
+        self._identity = self._check_file(Path(self.path))
         with self._connect() as db:
-            db.execute("""CREATE TABLE IF NOT EXISTS reports (
-                report_key TEXT PRIMARY KEY, body TEXT NOT NULL,
-                state TEXT NOT NULL CHECK(state IN ('pending','sending','sent','unknown')),
-                message_id TEXT)""")
+            if create:
+                db.execute("""CREATE TABLE IF NOT EXISTS reports (
+                    report_key TEXT PRIMARY KEY, body TEXT NOT NULL,
+                    state TEXT NOT NULL CHECK(state IN ('pending','sending','sent','unknown')),
+                    message_id TEXT)""")
+            else:
+                # An empty/truncated file is not a fresh operational ledger.
+                try:
+                    db.execute("SELECT report_key, body, state, message_id FROM reports LIMIT 0")
+                except sqlite3.Error:
+                    raise DeliveryError("outbox uninitialized; reconcile storage before proceeding") from None
+
+    def _check_directory(self):
+        try:
+            parent = Path(self.path).parent
+            for directory in (parent, *parent.parents):
+                info = directory.lstat()
+                if not stat.S_ISDIR(info.st_mode) or info.st_uid not in (0, os.geteuid()):
+                    raise ValueError
+                # Sticky /tmp is supported; other shared writable ancestors
+                # could let another UID replace the private directory itself.
+                if info.st_mode & 0o022 and not info.st_mode & stat.S_ISVTX:
+                    raise ValueError
+            info = parent.lstat()
+            if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o777 != 0o700:
+                raise ValueError
+        except (OSError, ValueError):
+            raise DeliveryError("private outbox directory required") from None
+
+    @staticmethod
+    def _check_file(path):
+        try:
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                    or stat.S_IMODE(info.st_mode) != 0o600 or info.st_nlink != 1):
+                raise ValueError
+            return info.st_dev, info.st_ino
+        except (OSError, ValueError):
+            raise DeliveryError("private outbox file required") from None
+
+    def _verify_storage(self):
+        self._check_directory()
+        if self._check_file(Path(self.path)) != self._identity:
+            raise DeliveryError("outbox storage changed; reconcile before proceeding")
+        # SQLite may create journals or WAL files. Refuse preexisting links or
+        # shared-readable sidecars, without modifying their permissions.
+        for suffix in ('-journal', '-wal', '-shm'):
+            sidecar = Path(self.path + suffix)
+            try:
+                sidecar.lstat()
+            except FileNotFoundError:
+                continue
+            try:
+                self._check_file(sidecar)
+            except DeliveryError:
+                # A journal may disappear normally between concurrent calls.
+                if not sidecar.exists() and not sidecar.is_symlink():
+                    continue
+                raise
 
     @contextmanager
     def _connect(self):
-        db = sqlite3.connect(self.path, timeout=10)
+        self._verify_storage()
+        # mode=rw refuses recreation if storage vanishes after verification.
+        db = sqlite3.connect(Path(self.path).as_uri() + "?mode=rw", uri=True, timeout=10)
         try:
             db.execute("PRAGMA synchronous=FULL")
             with db:

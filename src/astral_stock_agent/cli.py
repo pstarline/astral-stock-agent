@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import sqlite3
+import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -12,6 +13,20 @@ from .reconciliation import reconcile_daily
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "init-outbox":
+        parser = argparse.ArgumentParser(description="Explicitly initialize a private outbox; never sends")
+        parser.add_argument("--database", type=Path, required=True)
+        args = parser.parse_args(argv[1:])
+        try:
+            if os.getenv("GITHUB_ACTIONS"):
+                raise DeliveryError("operational initialization prohibited in public CI")
+            Outbox(args.database, create=True)
+            print("Private outbox initialized; persistence and backup still require operator verification")
+            return 0
+        except (OSError, ValueError, sqlite3.Error, DeliveryError):
+            print("Outbox initialization blocked: private storage required")
+            return 2
     parser = argparse.ArgumentParser(description="Validate an Astral paper snapshot and preview a daily report")
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--send", action="store_true", help="Send to configured private Telegram destination")
