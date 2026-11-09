@@ -898,6 +898,45 @@ https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows
 - 실제 API 조회/발송/백테스트/신규결제0회, 추가 승인 필요없음. auto-stock은 변경하지 않았다.
   GPT-Work/GitHub 잔여량·모델/추론 고정은 미확인이다.
 
+## 이번 실행 — 실제 공식 계좌 응답을 조회 보고에 연결 (2026-11-09 KST)
+
+- 시작 main67b79b3ee61d8758b7c1e6fee3cb1f3762e275f3, 열린 PR0개.
+  PR #23 병합/main CI42611535418 성공, 실제 Telegram 읽기 점검42612494759/
+  job129144174474 성공을 확인했다. 봇 인증/개인 대화 조회만true, 발송 권한/실제 새 수신은false다.
+  이로써 Github 설정 확인은 완료됐다. Work에 운영 비밀정보가 주입됐다고 처리하지 않는다.
+- Astral 계좌/배포를 다시 읽었다. 전용 미국 주식 Paper 계좌 기본 조건은 유지됐으며
+  활성 배포는0개다. 기존 BTC 배포를 재개하거나 auto-stock을 변경하지 않았다.
+- account_observation.py와 --account-observation CLI를 추가했다. 기존 preflight의
+  대상·응답 수신/완전성 검증을 재사용해 공식 cash/unassigned_cash/reserved_cash를 각각 표시한다.
+  현금을 평가액/매수 가능 금액/종가 잔액으로 바꾸거나 누락 필드를0으로 채우지 않는다.
+  계좌 식별자/이름은 출력하지 않는다. 원본/금액은 비공개 운영 자료다.
+- 방금 수집한 실제 공식 응답을 정규화/한국어 렌더링에 통과시켰다. 수신 시각과 현금 필드를
+  표시하고 balance_as_of/valuation_as_of/trading_day/손익/주문/체결/보유는null/미확인으로 유지했다.
+  계좌 UUID·실제 금액·원본 응답은 공개 코드/예제/문서에 넣지 않았다.
+  배포 부재를 무거래/무손실 증명으로 취급하지 않으며 거래일 보고나 완전한 원장으로 승격하지 않았다.
+- 새 모드는 미리보기 전용이다. --send/다른 모드와 혼합을 차단하고 Public CI 실제 출처의
+  금액 출력도 차단했다. 운영 원장/Telegram 전송/신규 주문 권한은 없다.
+- 운영 인증 경로도 확인했다. 공식 MCP endpoint의 무인증 initialize는401을 반환했고,
+  WWW-Authenticate가 지시한 공식 resource metadata를 읽었다. header bearer와
+  openid/email/profile은 제시되지만 읽기 전용 scope는 확인하지 못했다.
+  클라이언트 등록/동의/토큰 발급·재사용은 하지 않았다. Astral 공식 MCP/알림 문서에서도
+  Github용 정적 API키나 Telegram 내장 채널을 검증하지 못했다. 없는 기능을 가정하지 않는다.
+- 합성 회귀 검사22개 추가, Python3.11.17 전체730 passed, compileall/공백 검사 통과
+  (기존 pandas 경고4개). 실제 응답 확인과 별도로 잘못된 계좌/금액/수신 시각·누락값·오발송/
+  원장 접근 부재·공개CI 금액 비출력을 검사했다. 외부 독립 에이전트 검토는 하지 않았다.
+- MVP/전체는 아직 미완료다. 실제 조회→계좌 관측 보고가 연결됐지만 미국 주식 적합 전략/
+  승인 후 배포, 완전한 공식 원장, 승인된 비공개 영속 실행/인증 및 일일 전송은 남았다.
+  다음 우선순위는 기존 일봉 회계 문제/전략 배포 보류와 운영 인증·호스트 연결을 해결하는 일이다.
+  같은 실패 백테스트·중복 버그 보고·Secret 점검 PR을 반복하지 않았다.
+- 신규 배포/주문/Telegram 실제 전송/백테스트/결제0회다. 일반 코드 추가 승인은 없고
+  실제 전략 배포 미리보기/새 외부 인증 권한은 별도 승인 대상이다. GPT-Work/GitHub 잔여량과
+  모델/추론 고정은 미확인이다. Astral daily_backtest_limit은 조회 시 usage0이었고 limit=-1의
+  remaining 표시를 실제 남은 횟수로 해석하지 않았다. 최종 head CI 성공 후 저위험 PR만 병합한다.
+
+근거: https://heyastral.ai/docs/mcp,
+https://heyastral.ai/docs/alerts-notifications,
+https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization
+
 ## 후속 실행 — Chat ID 등록 이후 비전송 연결 확인 (2026-11-09 KST)
 
 - 최신 main df545865812483f13406bd0578e014a4bfef0e33, 열린 PR0개, PR #22 병합과

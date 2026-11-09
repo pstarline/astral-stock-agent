@@ -48,6 +48,31 @@ python -m astral_stock_agent.cli private/preflight.json --preflight --us-symbol 
 공개 저장소에 넣지 않는다. 배포 부재는 당일 거래/체결/손익 0의 증명이 아니며
 `--send`, `--activity`, `--reconcile`과 함께 사용할 수 없다.
 
+## 공식 Paper 계좌 조회 보고 미리보기
+
+```bash
+python -m astral_stock_agent.cli private/preflight.json --account-observation --us-symbol SPY
+```
+
+기존 preflight의 원본 응답 전달 형식을 사용한다. `account_observation`은 공식 계좌와
+배포 두 조회의 대상·완전성·수신 시점을 검증한 뒤 cash/unassigned_cash/reserved_cash를
+각각 표시한다. `collect_account_observation`은 이미 인증된 콜백으로 두 조회를 한 번씩 수행한다.
+Work가 받은 실제 응답을 정규화기에 연결해 비공개 미리보기를 확인했다.
+이는 OAuth 인증을 Python으로 자동 이전하는 기능이나 실제 일일 손익 보고가 아니다.
+
+현금 필드를 평가액·매수 가능 금액·종가 잔고로 바꾸지 않고, 서로 합산되는 관계도 가정하지 않는다.
+빠진 값은 null/미확인으로 유지하며 잘못된 값은 거부한다. 수신 시각은 잔액 기준 시각이 아니므로
+balance_as_of/valuation_as_of/trading_day 및 손익·주문·체결·보유는 null로 남긴다.
+활성 배포가 없어도 거래·손익 0으로 채우지 않는다. 원본 계좌 식별자·이름은 보고에 넣지 않는다.
+금액과 원본 입력 자체는 비공개 운영 자료이며 저장소/공개 로그에 넣지 않는다.
+새 CLI 모드는 미리보기 전용으로 --send/다른 모드와 함께 쓸 수 없고 실제 출처의 Public CI
+미리보기도 차단한다. source 라벨은 인증이나 원천 진위의 증명이 아니므로 신뢰된 수집기만 사용한다.
+
+GitHub의 Telegram 토큰/Chat ID는 수동 점검에서 인증·개인 대화 조회에 성공했다.
+이를 Work/Python 운영 환경에 Secret이 연결됐다는 뜻으로 보지 않는다. 별도 OAuth 인증 없는
+공식 MCP initialize 요청은401과 공식 resource metadata를 반환했다. 해당 metadata에서
+읽기 전용 권한 범위는 확인하지 못했으며 ChatGPT 인증정보를 추출/재사용하지 않는다.
+
 ## Astral 조회 내역 미리보기
 
 ```bash

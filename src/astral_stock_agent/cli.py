@@ -11,6 +11,7 @@ from .report import InvalidSnapshot, render
 from .activity import normalize_activity, render_activity
 from .reconciliation import reconcile_daily
 from .preflight import normalize_preflight, render_preflight
+from .account_observation import render_account_observation
 
 
 def main(argv=None):
@@ -64,6 +65,7 @@ def main(argv=None):
     parser.add_argument("--send", action="store_true", help="Send to configured private Telegram destination")
     parser.add_argument("--database", type=Path, help="Existing durable PRIVATE runtime volume path")
     parser.add_argument("--preflight", action="store_true", help="Preview account/deployment prerequisites; never sends")
+    parser.add_argument("--account-observation", action="store_true", help="Preview official cash fields with unknown accounting; never sends")
     parser.add_argument("--activity", action="store_true", help="Preview raw MCP activity; never sends")
     parser.add_argument("--reconcile", action="store_true", help="Reconcile closing books; required for operational --send")
     parser.add_argument("--us-symbol", action="append", default=[], help="Independently verified US-equity symbol for activity scope")
@@ -78,6 +80,16 @@ def main(argv=None):
                 raise InvalidSnapshot("daily accounting reconciliation required for delivery")
             if os.getenv("GITHUB_ACTIONS"):
                 raise DeliveryError("operational delivery prohibited in public CI")
+        if args.account_observation:
+            if args.send or args.preflight or args.activity or args.reconcile:
+                raise InvalidSnapshot("account observation is a separate preview-only operation")
+            if isinstance(snapshot, dict) and snapshot.get("source") == "fixture":
+                now = max(datetime.fromisoformat(x["received_at"].replace("Z", "+00:00"))
+                          for x in snapshot["responses"].values())
+            if os.getenv("GITHUB_ACTIONS") and snapshot.get("source") != "fixture":
+                raise InvalidSnapshot("private account preview prohibited in public CI")
+            print(render_account_observation(snapshot, verified_us_symbols=args.us_symbol, now=now))
+            return 0
         if args.preflight:
             if args.send or args.activity or args.reconcile:
                 raise InvalidSnapshot("preflight is a separate preview-only operation")
