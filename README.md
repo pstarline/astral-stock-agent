@@ -192,6 +192,15 @@ Telegram 인증·접근·충돌·요청 제한, 기존 웹훅, 명령 미수신/
 새 코드 실행은 이전 실패 작업의 Re-run이 아니라 최신 main의 **Run workflow**로 시작한다.
 `전송 시도: 없음`이고 명령 미수신이면 본인 봇에 새 `/astral_setup`을 보낸 뒤 수동 실행한다.
 
+`TELEGRAM_CHAT_ID` 등록 후에는 Actions의 **Telegram connection check (manual only)**를
+main에서 수동 실행한다. 새 명령이나 메시지 전송 없이 등록값을 검사한다.
+이 작업은 소유자 main 수동 실행에서 두 Secret을 한 단계에 주입하고 공식 getMe/getChat만
+각각 한 번 호출한다. 체크아웃·외부 액션·설치·아티팩트·쓰기 권한·자동 재시도는 없다.
+숫자 ID와 실제 응답의 정확한 ID/private 유형을 대조하며, 잘못된 설정은 조회 전에 거부한다.
+로그에는 고정 오류나 확인값 네 개만 남는다. bot_authenticated/private_chat_verified가
+true여도 send_permission_verified/delivery_verified는 false다. 사람의 신원이나 실제
+수신·영속 운영 준비·일일 자동 보고 완성을 증명하지 않는다. 운영 CLI의 CI 차단은 유지한다.
+
 운영 환경의 비밀 설정을 주입한 뒤 아래 명령으로 메시지 없이 연결을 점검한다.
 토큰이나 수신 ID를 명령 인자로 전달하지 않는다.
 
