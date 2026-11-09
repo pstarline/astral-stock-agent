@@ -10,7 +10,7 @@
   계좌/주문/체결 대조, 한국어 보고, SQLite 중복 선점, Telegram HTTPS 전송.
 - 예제 전송과 Public CI 운영 전송을 차단했다. 거래/배포 클라이언트는 없다.
 - 무비밀 최소 권한 Public CI 정의를 작성했다. Python 3.11 단일 버전, 5분 상한.
-- Python 3.11.17에서 pytest **350 passed**, compileall 성공, CLI 예제 미리보기 확인.
+- Python 3.11.17에서 pytest **387 passed**, compileall 성공, CLI 예제 미리보기 확인.
 - 토큰 오류 비노출, 원장 재시작/동시 실행/타임아웃/프로세스 중단,
   출처·시점·미완료 거래일·현금 대조·가짜 체결 방지 회귀 테스트를 포함한다.
 - 별도 검토 단계에서 가용 현금과 장부 현금의 표시 오류를 수정하고 회귀 테스트 3개를 추가했다.
@@ -402,3 +402,46 @@ MCP에는 Paper 계정 생성 기능이 없어 사용자에게 Astral 웹 대체
 - 원격 PR #9: https://github.com/pstarline/astral-stock-agent/pull/9
   코드 head 27a871321f92553ec71a75fb64335ff052fd8afd의 Python checks
   42544411787 성공을 확인했다. 최종 문서 갱신 head의 CI를 별도로 재확인한 뒤 병합한다.
+
+## 이번 실행 — 외부 실행 조건 불일치 차단 (2026-11-09 KST)
+
+- 시작 main 734bf14de0367f12ebaf8994298ff5f55966998c, Public, 열린 PR 0개.
+  PR #9 병합 및 main CI 42544548422 성공 확인. 보호규칙 비활성/rulesets 없음 확인.
+  매시간 지시는 기존 문서와 일치해 중복 변경하지 않았다.
+- 기존 Astral 연구 전략 정의를 읽기 조회했다. 실제 컴파일 응답은 backtest/run_strategy v2,
+  15분봉, bar_close 이벤트, UTC, fill_price_mode=on_close, follow_live=true였다.
+  follow_live 설정은 실제 실거래 주문이나 배포가 있다는 증거로 해석하지 않았다.
+  이 정의는 이전 Explore 연구 후보이며 새 SMA 후보 정의로 취급하지 않는다.
+- 로컬 연구 계산은 일봉·다음 예정 거래일 시가·정적 자료를 사용한다.
+  따라서 기존 정의와 로컬 결과를 같은 체결 조건의 재현으로 주장할 수 없다.
+  기존 후보의 과거 Astral 백테스트 결과와 새 SMA 후보의 로컬 결과를 직접 대조하지 않았다.
+- 새 일봉 후보의 validate_only 미리보기를 시도했으나 입력 스키마 검증이 2회 실패했다.
+  원인: 조회 응답의 raw_state 형식과 authoring 도구 입력 형식이 다르며,
+  자산 유형/주문 side 및 규칙 actions·신호의 typed schema를 구분해야 한다.
+  도구는 invalid_arguments/needs_correction을 반환했다. 두 번 실패 규칙에 따라 추가 시도를
+  중단하고 아래 독립 과제로 전환했다. 신규 전략 생성 성공·신규 미리보기 성공은 주장하지 않는다.
+  이 실행에서 전략 저장·백테스트 시작·배포·주문은 하지 않았다.
+- research_contracts.py는 전략 전체/사용자 ID를 보존하지 않고 공식 조회 응답에서
+  봉 주기·체결 시점·시간대·판단 이벤트·follow_live 다섯 조건만 정규화한다.
+  관측된 on_close만 same_bar_close로 매핑하며, 미관측 모드·누락·잘못된 타입은 차단한다.
+  next_session_open은 로컬 모델을 설명하는 내부 값이며 Astral 지원 기능이라는 주장이 아니다.
+- 실제 조회 응답의 최소 투영을 로컬 비교기에 넣어 봉 주기·체결 시점·follow_live 차이를
+  탐지했고 require_matching_execution이 차단하는 것을 확인했다.
+  원본 전체 소스·전략 정의·사용자/계좌 ID·서명 URL은 Public에 넣지 않았다.
+- 기존 compare_sma_candidate에 외부 조건 검사 경로를 연결했다.
+  external_execution이 제공되면 계산 전에 조건 일치를 요구하고, 미제공이면 검사 결과는 None이다.
+  조건이 같아도 full_strategy_parity_verified/deployment_approved는 false다.
+  신호·수량·비용·가격·기간·기업행위·전체 전략 재현을 다섯 조건만으로 인증하지 않는다.
+- 별도 실패 관점 검토: on_close/다음 시가 혼동, 다중 불일치, 버전·모드·타입/누락,
+  원본 보존·비밀 오류 비노출, 각 조건 단독 차이, 계산 전 차단과 미검사 표시를 점검했다.
+  외부 독립 에이전트 리뷰나 신규 후보의 Astral 엔진 재현은 수행하지 않았다.
+- Python3.11.17 pytest 387 passed(37개 추가), compileall·공백 검사 통과.
+  소실된 로컬 3.11 런타임을 복구해 사용했다. 기존 pandas 경고 4개는 동일하다.
+  새 PR 원격 CI는 별도로 확인 후 병합한다. 운영 코드·CI 권한·의존성은 바꾸지 않았다.
+- MVP/전체 단계는 Phase1 일부·Phase2 보고 기반 및 연구 검증 구현 상태다.
+  검증 미국 주식 후보/승인 후 배포·공식 회계 원천 연결·비공개 운영 환경·Telegram 수신은 미완료다.
+  다음은 authoring 입력 스키마를 확인해 validate_only를 재개하거나, 공식 원천/비공개 운영
+  환경의 독립 장애를 해결하는 것이다. 실행 조건을 임의 변경해 재현 성공으로 표시하지 않는다.
+- 기존 auto-stock/BTC·실제 주문/배포·Telegram·인증 범위·유료 서비스는 변경하지 않았다.
+  새 코드·합성 테스트·본 문서만 공개한다. GPT-Work/GitHub 잔여 사용량과 모델/추론 고정은
+  확인하지 못했다. 이번 코드의 추가 사용자 결정은 없으며 실제 배포/운영 비밀 설정은 후속 단계다.
