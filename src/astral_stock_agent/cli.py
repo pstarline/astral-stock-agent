@@ -15,6 +15,23 @@ from .preflight import normalize_preflight, render_preflight
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "check-telegram":
+        parser = argparse.ArgumentParser(description="Check private bot/chat metadata; never sends or reads messages")
+        # argparse's default unknown-argument error echoes supplied values.
+        # Reject them without reflecting a mistakenly pasted secret.
+        if argv[1:] not in ([], ["-h"], ["--help"]):
+            print("Telegram check blocked: no commandline configuration accepted")
+            return 2
+        parser.parse_args(argv[1:])
+        try:
+            if os.getenv("GITHUB_ACTIONS"):
+                raise DeliveryError("operational connection check prohibited in public CI")
+            sender = Telegram(os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID"))
+            print(json.dumps(sender.check_connection(), sort_keys=True))
+            return 0
+        except (OSError, ValueError, TypeError, DeliveryError):
+            print("Telegram check blocked: private configuration or connection unverified")
+            return 2
     if argv and argv[0] == "inspect-outbox":
         parser = argparse.ArgumentParser(description="Read private outbox state counts; never sends or repairs")
         parser.add_argument("--database", type=Path, required=True)

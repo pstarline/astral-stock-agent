@@ -46,12 +46,51 @@ class _NoRedirect(HTTPRedirectHandler):
 
 class Telegram:
     def __init__(self, token, chat_id):
-        if not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]{20,}", token or ""):
+        if type(token) is not str or not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]{20,}", token):
             raise DeliveryError("missing or invalid Telegram token")
-        if not re.fullmatch(r"-?[1-9][0-9]*", chat_id or ""):
+        if (type(chat_id) is not str or not re.fullmatch(r"[1-9][0-9]{0,15}", chat_id)
+                or int(chat_id) > 2**52 - 1):
             raise DeliveryError("private numeric Telegram destination required")
         self._token = token
         self._chat_id = chat_id
+
+    def check_connection(self):
+        """Read getMe/getChat once each, without messages or update consumption.
+
+        Success checks authentication and the configured private chat only.
+        It does not prove send permission, human identity, receipt or readiness.
+        No names, IDs, token-bearing URLs or provider errors are returned.
+        """
+        if os.getenv("GITHUB_ACTIONS"):
+            raise DeliveryError("Telegram connection check prohibited in public CI")
+        try:
+            def read(method, arguments):
+                request = Request(
+                    f"https://api.telegram.org/bot{self._token}/{method}",
+                    data=json.dumps(arguments).encode(),
+                    headers={"Content-Type": "application/json"}, method="POST",
+                )
+                with build_opener(_NoRedirect()).open(request, timeout=15) as response:
+                    body = response.read(65537)
+                if len(body) > 65536:
+                    raise ValueError
+                result = json.loads(body)
+                if result["ok"] is not True or not isinstance(result["result"], dict):
+                    raise ValueError
+                return result["result"]
+
+            bot = read("getMe", {})
+            if (bot.get("is_bot") is not True or type(bot.get("id")) is not int
+                    or not 0 < bot["id"] <= 2**52 - 1):
+                raise ValueError
+            chat = read("getChat", {"chat_id": self._chat_id})
+            if (chat.get("type") != "private" or type(chat.get("id")) is not int
+                    or str(chat["id"]) != self._chat_id or chat["id"] == bot["id"]):
+                raise ValueError
+            return {"bot_authentication_verified": True, "private_chat_verified": True,
+                    "send_permission_verified": False, "delivery_verified": False}
+        except Exception:
+            raise DeliveryError("Telegram connection unverified") from None
 
     def send(self, message):
         validate_telegram_text(message)
