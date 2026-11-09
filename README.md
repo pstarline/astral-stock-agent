@@ -92,8 +92,11 @@ python -m astral_stock_agent.cli examples/astral_activity.json --activity --us-s
 python -m astral_stock_agent.cli examples/daily_reconciliation.json --reconcile --us-symbol SPY
 ```
 
-위 파일은 계산 검증용 합성 예제이며 실제 Astral 원장/응답이 아니다. `--reconcile`은
-미리보기 전용이고 `--send`와 함께 사용할 수 없다. 실제 데이터 종단 간 연결은 미검증이다.
+위 파일은 계산 검증용 합성 예제이며 실제 Astral 원장/응답이 아니다. 합성 예제는 전송할 수 없다.
+`--reconcile`은 기본적으로 미리보기다. 운영 전송에는 신뢰된 수집기가 준비한 비공개
+전/현 종가 장부와 기간 회계 근거를 사용해 `--reconcile --send`로 실행해야 한다.
+`--send`만으로 단일 스냅샷을 보내는 경로는 차단한다. 출처 라벨만 바꾸는 것은
+실제 수집·검증을 대신하지 않는다. 실제 공식 데이터와 Telegram 수신의 종단 간 연결은 미검증이다.
 
 `reconciliation.reconcile_daily`에는 신뢰된 정규화기가 수집·보관한 다음 자료가 필요하다.
 
@@ -157,7 +160,7 @@ NYSE 캘린더의 실제 예정 폐장과 입력 폐장 시각을 대조하며, 
 
 ```bash
 python -m astral_stock_agent.cli init-outbox --database /private-volume/reports.sqlite
-python -m astral_stock_agent.cli private/snapshot.json --send --database /private-volume/reports.sqlite
+python -m astral_stock_agent.cli private/daily_reconciliation.json --reconcile --us-symbol SPY --send --database /private-volume/reports.sqlite
 ```
 
 새 원장은 0600으로 생성하며, 기존 파일·디렉터리 권한을 자동 변경하지 않는다.

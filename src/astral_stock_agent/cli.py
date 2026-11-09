@@ -34,7 +34,7 @@ def main(argv=None):
     parser.add_argument("--database", type=Path, help="Existing durable PRIVATE runtime volume path")
     parser.add_argument("--preflight", action="store_true", help="Preview account/deployment prerequisites; never sends")
     parser.add_argument("--activity", action="store_true", help="Preview raw MCP activity; never sends")
-    parser.add_argument("--reconcile", action="store_true", help="Preview closing-book reconciliation; never sends")
+    parser.add_argument("--reconcile", action="store_true", help="Reconcile closing books; required for operational --send")
     parser.add_argument("--us-symbol", action="append", default=[], help="Independently verified US-equity symbol for activity scope")
     args = parser.parse_args(argv)
     try:
@@ -42,6 +42,11 @@ def main(argv=None):
             raise InvalidSnapshot("snapshot too large")
         snapshot = json.loads(args.snapshot.read_text())
         now = datetime.now(timezone.utc)
+        if args.send:
+            if not args.reconcile:
+                raise InvalidSnapshot("daily accounting reconciliation required for delivery")
+            if os.getenv("GITHUB_ACTIONS"):
+                raise DeliveryError("operational delivery prohibited in public CI")
         if args.preflight:
             if args.send or args.activity or args.reconcile:
                 raise InvalidSnapshot("preflight is a separate preview-only operation")
@@ -51,14 +56,16 @@ def main(argv=None):
             print(render_preflight(normalize_preflight(snapshot, verified_us_symbols=args.us_symbol, now=now)))
             return 0
         if args.reconcile:
-            if args.send or args.activity:
-                raise InvalidSnapshot("reconciliation is preview-only")
-            if snapshot["current"]["source"] == "fixture":
+            if args.activity:
+                raise InvalidSnapshot("reconciliation cannot be mixed with activity preview")
+            if snapshot["current"]["source"] == "fixture" and not args.send:
                 now = datetime.fromisoformat(snapshot["current"]["collected_at"].replace("Z", "+00:00"))
             reconciled = reconcile_daily(snapshot["previous"], snapshot["current"], snapshot["accounting"],
                                          verified_us_symbols=args.us_symbol, now=now)
-            print(render(reconciled, now=now)[1])
-            return 0
+            if not args.send:
+                print(render(reconciled, now=now)[1])
+                return 0
+            snapshot = reconciled
         if args.activity:
             if args.send:
                 raise InvalidSnapshot("unreconciled activity delivery prohibited")
