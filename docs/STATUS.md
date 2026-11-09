@@ -690,3 +690,8 @@ MCP에는 Paper 계정 생성 기능이 없어 사용자에게 Astral 웹 대체
 - 기존 auto-stock/BTC·실제 주문/배포/Telegram 전송·인증 범위·유료 서비스는 변경하지 않았다.
   원본 공유 전략 전체 소스·가격 데이터·계좌 ID·서명 URL을 공개하지 않는다.
   이번 코드에 추가 사용자 결정은 없으며 실제 배포는 미리보기 후 별도 승인이 필요하다.
+
+- 원격 PR #16: https://github.com/pstarline/astral-stock-agent/pull/16
+  코드 head 8435e3868c877819249fc1644e8a5ef57cfe415c의 Python checks
+  42584918661 및 테스트/compileall 단계 성공을 확인했다.
+  최종 상태 문서 head의 CI도 확인 후 병합한다.
