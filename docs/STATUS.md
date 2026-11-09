@@ -615,3 +615,7 @@ MCP에는 Paper 계정 생성 기능이 없어 사용자에게 Astral 웹 대체
   원본 가격/전략·계좌 ID·서명 URL은 공개하지 않는다. GPT-Work/GitHub 잔여 사용량과
   모델/추론 고정은 확인하지 못했다. 이번 코드의 추가 사용자 결정은 없다.
   실제 운영 환경·안전한 Telegram 설정 및 적합한 전략의 배포 승인은 후속 단계다.
+
+- 원격 PR #14: https://github.com/pstarline/astral-stock-agent/pull/14
+  코드 head ab5fd929974419d3d33014ed4390e88d2583b66e의 Python checks
+  42571889817 성공을 확인했다. 최종 문서 갱신 head의 CI를 별도로 재확인한 뒤 병합한다.
