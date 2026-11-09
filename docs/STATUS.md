@@ -12,7 +12,10 @@
 - 모든 보고 모드에서 정규화/대조/렌더링/전송기/원장 접근 전에 중단하는 합성 검사를 추가했다.
   Python3.11.17 전체762 passed(신규32), compileall 성공, 기존 pandas 경고4개다.
   실패 관점 재검토에서 필드명 디코딩·중첩 범위·오류 비노출·다운스트림 호출 부재를 확인했다.
-  외부 독립 에이전트 리뷰는 수행하지 않았다. 원격 최종 head CI는 별도로 확인한다.
+  외부 독립 에이전트 리뷰는 수행하지 않았다.
+  PR #25: https://github.com/pstarline/astral-stock-agent/pull/25
+  코드 head04f3641140d796d941f0b5b81a7daccd101a5045의 원격CI42652207422는
+  설치·pytest·compileall·후처리 모두success다. 이 기록을 포함한 최종 head CI도 성공해야 병합한다.
 - AGENTS.md와 ARCHITECTURE 역할 표를 함께 갱신했다. 매시간 개발 및 이슈 #17 순서
   (Paper·Telegram MVP → 공개 탐색 → 공통 검증 → 조건부 선택)는 유지한다.
   주1회 공개 탐색은 여전히 미구현/비활성이다.
