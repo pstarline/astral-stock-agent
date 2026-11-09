@@ -535,3 +535,7 @@ MCP에는 Paper 계정 생성 기능이 없어 사용자에게 Astral 웹 대체
   README에 새 읽기 경로와 비공개 내부 입력 계약을 기록했다. GPT-Work/GitHub 잔여 사용량과
   모델/추론 고정은 확인하지 못했다. 이번 코드의 추가 사용자 결정은 없다.
   실제 운영 호스트/Telegram 설정과 적합한 전략의 배포 미리보기 승인은 후속 단계다.
+
+- 원격 PR #12: https://github.com/pstarline/astral-stock-agent/pull/12
+  코드 head 5b0f53d3f9c73c42b5e768d5d55d63e05e66b0c2의 Python checks
+  42561113993 성공을 확인했다. 최종 문서 갱신 head의 CI를 별도로 재확인한 뒤 병합한다.
