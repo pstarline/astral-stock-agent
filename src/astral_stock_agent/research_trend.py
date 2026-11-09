@@ -9,6 +9,7 @@ from decimal import Context, Decimal, localcontext
 from zoneinfo import ZoneInfo
 
 from .research_data import DailyHistory, ResearchDataError
+from .research_contracts import ExecutionParity, require_matching_execution
 from .research_execution import PriceOnlySimulation, _decimal, simulate_next_open
 from .research_sessions import NY_SESSION_DATE, UTC_SESSION_DATE, require_daily_session_coverage
 
@@ -39,6 +40,7 @@ class TrendComparison:
     trade_from: date
     kind: str = 'hypothetical_price_only_comparison'
     deployment_approved: bool = False
+    execution_conditions: ExecutionParity | None = None
 
 
 def sma_close_decisions(history, *, window, units, trade_from, label_convention):
@@ -87,12 +89,16 @@ def sma_close_decisions(history, *, window, units, trade_from, label_convention)
 
 def compare_sma_candidate(history, *, window, units, trade_from, initial_cash,
                           commission_bps, slippage_bps, first_day, last_day, now,
-                          label_convention):
+                          label_convention, external_execution=None):
     """Run a candidate and reference under identical explicit execution costs.
 
+    Supplied external execution conditions must match before any calculation.
+    Matching this subset does not certify signals, costs or full strategy parity.
+    Without external conditions the result records no external check.
     Full scheduled coverage is required, including warmup. No parameter search,
     approval decision, Paper result, or full-strategy causality claim is made.
     """
+    condition_check = require_matching_execution(external_execution) if external_execution is not None else None
     coverage = dict(first_day=first_day, last_day=last_day, now=now, label_convention=label_convention)
     require_daily_session_coverage(history, **coverage)
     decisions = sma_close_decisions(history, window=window, units=units,
@@ -100,4 +106,5 @@ def compare_sma_candidate(history, *, window, units, trade_from, initial_cash,
     costs = dict(initial_cash=initial_cash, commission_bps=commission_bps, slippage_bps=slippage_bps)
     candidate = simulate_next_open(history, decisions.executable_changes, **costs, **coverage)
     reference = simulate_next_open(history, decisions.reference_changes, **costs, **coverage)
-    return TrendComparison(decisions, candidate, reference, window, _decimal(units), trade_from)
+    return TrendComparison(decisions, candidate, reference, window, _decimal(units), trade_from,
+                           execution_conditions=condition_check)
