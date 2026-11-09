@@ -14,6 +14,20 @@ from .preflight import normalize_preflight, render_preflight
 from .account_observation import render_account_observation
 
 
+def _unique_json_object(pairs):
+    """Reject ambiguous fields at every JSON object, including escaped names.
+
+    Never include the key or either value in the error: inputs are private.
+    Separate objects may use the same field names normally.
+    """
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise InvalidSnapshot("ambiguous JSON object")
+        result[key] = value
+    return result
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "check-telegram":
@@ -73,7 +87,7 @@ def main(argv=None):
     try:
         if args.snapshot.stat().st_size > 1_000_000:
             raise InvalidSnapshot("snapshot too large")
-        snapshot = json.loads(args.snapshot.read_text())
+        snapshot = json.loads(args.snapshot.read_text(), object_pairs_hook=_unique_json_object)
         now = datetime.now(timezone.utc)
         if args.send:
             if not args.reconcile:
