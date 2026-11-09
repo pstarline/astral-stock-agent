@@ -186,6 +186,24 @@ Telegram API 승인 응답은 사람의 수신·열람 확인이 아니다. `sen
 Telegram 기록을 사람이 대조하고 복구 정책을 구현한 뒤 처리한다. 현재 도구에는
 재전송/기존 원장 삭제·전송 상태 초기화 기능이 없으며, 자동 정확히 1회 전송을 보장하지 않는다.
 
+## 연구 후보 문법 미리보기
+
+`authoring.sma_preview_request`는 별도로 검증한 미국 주식 심볼과 명시적 연구 수량을 받아
+자체 SMA 후보의 `validate_only=True` 요청만 만든다. `validate_sma_preview`는 주입받은
+인증된 호출 함수로 `astral_strategy_build`를 한 번 호출한다. 저장·백테스트 시작·배포·
+주문 API와 자동 재시도는 없으며, Python/CI용 인증정보를 획득하지 않는다.
+
+실제 미리보기에서 확인한 입력은 signal의 `expr`, rule의 `actions`,
+order의 `sizing_type=fixed_shares`와 `sizing_value`다. 수량을 생략하면 지분 비율 기본값이
+들어갈 수 있으므로 항상 명시한다. 이번 SPY/SMA20/1주 검증은 문법 확인용이며 운영 수량
+승인이 아니다. 응답의 정규화된 조건·주문 수량·누적 여부·엔진·암묵 가정을 엄격히 대조하고
+저장 식별자가 있거나 계약이 바뀌면 차단한다. 반환물에는 원본 코드나 계좌 정보가 없다.
+
+실제 응답의 `fill_price_mode=on_open`은 그대로 기록한다. 이 이름만으로 다음 거래일
+시가 체결·로컬 전략과의 전체 일치·수익성을 검증했다고 하지 않는다.
+`full_strategy_parity_verified`, `deployment_approved`, `new_orders_allowed`는
+항상 false다. 기존 체결 모드 검증기를 완화하지 않으며, 이전 손실 후보의 보류도 유지한다.
+
 ## 다음 작업
 
 [프로젝트 상태](docs/STATUS.md), [아키텍처](docs/ARCHITECTURE.md),
