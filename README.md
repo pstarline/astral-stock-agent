@@ -31,6 +31,23 @@ python -m astral_stock_agent.cli examples/paper_snapshot.json
 사용자가 개인 PC에 Python을 설치할 필요는 없다. 위 명령은 개발용 클라우드와
 나중에 연결할 Public CI를 위한 것이다.
 
+## Paper 실행 전 읽기 점검
+
+`preflight.collect_preflight`는 인증된 콜백으로 계좌·배포 두 조회만 수행한다.
+대상 계좌는 명시하며 기존 전략을 자동 선택하거나 주문/거래 이력을 조회하지 않는다.
+계좌 기본 조건이 맞아도 배포·원장·전송이 검증되지 않으면 진행 장애를 반환한다.
+출력에는 계좌 ID·이름·잔고·원본 오류를 포함하지 않는다. 주문 권한은 항상 없다.
+
+```bash
+python -m astral_stock_agent.cli private/preflight.json --preflight --us-symbol SPY
+```
+
+입력은 `version/source/account_ref/strategy_ref/responses`를 갖는 비공개 내부 전달 형식이다.
+`responses`에는 accounts/deployments의 도구명·빈 인자·수신 시각·실제 구조화 응답을 넣는다.
+이는 자동 OAuth 연결이나 영속 호스트 설치 기능이 아니다. 실제 조회로 만든 입력은
+공개 저장소에 넣지 않는다. 배포 부재는 당일 거래/체결/손익 0의 증명이 아니며
+`--send`, `--activity`, `--reconcile`과 함께 사용할 수 없다.
+
 ## Astral 조회 내역 미리보기
 
 ```bash

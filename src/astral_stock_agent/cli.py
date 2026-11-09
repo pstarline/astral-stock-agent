@@ -10,6 +10,7 @@ from .delivery import DeliveryError, Outbox, Telegram
 from .report import InvalidSnapshot, render
 from .activity import normalize_activity, render_activity
 from .reconciliation import reconcile_daily
+from .preflight import normalize_preflight, render_preflight
 
 
 def main(argv=None):
@@ -31,6 +32,7 @@ def main(argv=None):
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--send", action="store_true", help="Send to configured private Telegram destination")
     parser.add_argument("--database", type=Path, help="Existing durable PRIVATE runtime volume path")
+    parser.add_argument("--preflight", action="store_true", help="Preview account/deployment prerequisites; never sends")
     parser.add_argument("--activity", action="store_true", help="Preview raw MCP activity; never sends")
     parser.add_argument("--reconcile", action="store_true", help="Preview closing-book reconciliation; never sends")
     parser.add_argument("--us-symbol", action="append", default=[], help="Independently verified US-equity symbol for activity scope")
@@ -40,6 +42,14 @@ def main(argv=None):
             raise InvalidSnapshot("snapshot too large")
         snapshot = json.loads(args.snapshot.read_text())
         now = datetime.now(timezone.utc)
+        if args.preflight:
+            if args.send or args.activity or args.reconcile:
+                raise InvalidSnapshot("preflight is a separate preview-only operation")
+            if isinstance(snapshot, dict) and snapshot.get("source") == "fixture":
+                now = max(datetime.fromisoformat(x["received_at"].replace("Z", "+00:00"))
+                          for x in snapshot["responses"].values())
+            print(render_preflight(normalize_preflight(snapshot, verified_us_symbols=args.us_symbol, now=now)))
+            return 0
         if args.reconcile:
             if args.send or args.activity:
                 raise InvalidSnapshot("reconciliation is preview-only")

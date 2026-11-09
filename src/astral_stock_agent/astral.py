@@ -9,17 +9,10 @@ class AstralBoundaryError(ValueError):
     pass
 
 
-def paper_deployment(accounts, deployments, *, account_ref, strategy_ref, verified_us_symbols):
-    """Select one existing US-equity paper deployment; never create/replace one.
-
-    verified_us_symbols must come from an independently checked US-equity
-    universe. Symbol spelling alone cannot establish asset class.
-    Account UUIDs and resulting rows are PRIVATE operational data.
-    """
-    if not isinstance(accounts, dict) or not isinstance(deployments, dict):
-        raise AstralBoundaryError("invalid MCP result")
-    if accounts.get("status") == "needs_correction" or deployments.get("status") != "ok":
-        raise AstralBoundaryError("MCP response unsuccessful")
+def paper_account(accounts, *, account_ref):
+    """Resolve one intended verified USD Paper account; returned row is private."""
+    if not isinstance(accounts, dict) or accounts.get("status") == "needs_correction":
+        raise AstralBoundaryError("invalid account response")
     if accounts.get("account_status_error") or accounts.get("broker_health_error"):
         raise AstralBoundaryError("account state unavailable")
     candidates = [a for a in accounts.get("broker_accounts", []) if a.get("account_id") == account_ref]
@@ -30,6 +23,19 @@ def paper_deployment(accounts, deployments, *, account_ref, strategy_ref, verifi
             or account.get("account_status") != "active" or account.get("connection_status") != "active"
             or account.get("verified") is not True or account.get("currency") != "USD"):
         raise AstralBoundaryError("active verified USD paper account required")
+    return account
+
+
+def paper_deployment(accounts, deployments, *, account_ref, strategy_ref, verified_us_symbols):
+    """Select one existing US-equity paper deployment; never create/replace one.
+
+    verified_us_symbols must come from an independently checked US-equity
+    universe. Symbol spelling alone cannot establish asset class.
+    Account UUIDs and resulting rows are PRIVATE operational data.
+    """
+    if not isinstance(deployments, dict) or deployments.get("status") != "ok":
+        raise AstralBoundaryError("MCP response unsuccessful")
+    account = paper_account(accounts, account_ref=account_ref)
     candidates = [d for d in deployments.get("active_strategies", [])
                   if str(d.get("strategy_id")) == str(strategy_ref) and d.get("broker_account_id") == account_ref]
     if len(candidates) != 1:
