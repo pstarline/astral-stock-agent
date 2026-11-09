@@ -79,11 +79,12 @@ class Telegram:
 
 
 class Outbox:
-    def __init__(self, path, *, create=False):
+    def __init__(self, path, *, create=False, read_only=False):
         # Creation is an explicit bootstrap action, never an implicit restart.
-        if type(create) is not bool:
+        if type(create) is not bool or type(read_only) is not bool or (create and read_only):
             raise DeliveryError("explicit outbox initialization flag required")
         # This verifies local POSIX privacy, not volume persistence/backups.
+        self._read_only = read_only
         self.path = str(Path(os.path.abspath(os.fspath(path))))
         self._check_directory()
         if create:
@@ -161,13 +162,30 @@ class Outbox:
     def _connect(self):
         self._verify_storage()
         # mode=rw refuses recreation if storage vanishes after verification.
-        db = sqlite3.connect(Path(self.path).as_uri() + "?mode=rw", uri=True, timeout=10)
+        mode = "ro" if self._read_only else "rw"
+        db = sqlite3.connect(Path(self.path).as_uri() + "?mode=" + mode, uri=True, timeout=10)
         try:
+            if self._read_only:
+                db.execute("PRAGMA query_only=ON")
             db.execute("PRAGMA synchronous=FULL")
             with db:
                 yield db
         finally:
             db.close()
+
+    def status_counts(self):
+        """A point-in-time summary; never returns private keys, bodies or IDs.
+
+        Inspection does not authorize recovery or prove recipient receipt.
+        Use read_only=True to require SQLite read-only access throughout.
+        """
+        counts = dict.fromkeys(("pending", "sending", "sent", "unknown"), 0)
+        with self._connect() as db:
+            for state, count in db.execute("SELECT state, COUNT(*) FROM reports GROUP BY state"):
+                if state not in counts:
+                    raise DeliveryError("outbox contains invalid state; reconciliation required")
+                counts[state] = count
+        return counts
 
     def enqueue(self, key, body):
         """Persist an immutable report; identical repeats are idempotent.
