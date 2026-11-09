@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
-from .delivery import DeliveryError, Outbox, Telegram
+from .delivery import DeliveryError, Outbox, Telegram, validate_telegram_text
 from .report import InvalidSnapshot, render
 from .activity import normalize_activity, render_activity
 from .reconciliation import reconcile_daily
@@ -84,6 +84,7 @@ def main(argv=None):
             return 0
         if snapshot["source"] != "astral_mcp":
             raise InvalidSnapshot("fixture delivery prohibited")
+        validate_telegram_text(body)
         if os.getenv("GITHUB_ACTIONS"):
             raise DeliveryError("operational delivery prohibited in public CI")
         if args.database is None:

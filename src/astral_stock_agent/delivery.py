@@ -19,6 +19,26 @@ class DeliveryError(RuntimeError):
     pass
 
 
+# sendMessage documents 1-4096 characters after entity parsing. We send plain
+# text with no parse_mode/entities and conservatively cap UTF-16 code units.
+MAX_TELEGRAM_TEXT_UNITS = 4096
+
+
+def validate_telegram_text(message):
+    """Reject unsendable payloads locally; never trim, split or log the body.
+
+    Supplementary-plane characters count as two units under this conservative
+    application limit. This is not a claim about Telegram's grapheme counting.
+    """
+    try:
+        if type(message) is not str or not message.strip() or len(message) > MAX_TELEGRAM_TEXT_UNITS:
+            raise ValueError
+        if len(message.encode("utf-16-le")) // 2 > MAX_TELEGRAM_TEXT_UNITS:
+            raise ValueError
+    except (ValueError, UnicodeError):
+        raise DeliveryError("Telegram text invalid or above single-message limit") from None
+
+
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -34,6 +54,7 @@ class Telegram:
         self._chat_id = chat_id
 
     def send(self, message):
+        validate_telegram_text(message)
         request = Request(
             f"https://api.telegram.org/bot{self._token}/sendMessage",
             data=json.dumps({"chat_id": self._chat_id, "text": message}).encode(),
@@ -157,6 +178,7 @@ class Outbox:
         Insert and comparison share one write transaction so competing workers
         cannot accept different bodies for the same key. Errors omit both.
         """
+        validate_telegram_text(body)
         with self._connect() as db:
             db.execute("INSERT OR IGNORE INTO reports VALUES (?, ?, 'pending', NULL)", (key, body))
             stored = db.execute("SELECT body FROM reports WHERE report_key=?", (key,)).fetchone()
@@ -170,10 +192,16 @@ class Outbox:
 
     def deliver(self, key, sender):
         with self._connect() as db:
-            claimed = db.execute("UPDATE reports SET state='sending' WHERE report_key=? AND state='pending'", (key,)).rowcount
+            row = db.execute("SELECT body, state FROM reports WHERE report_key=?", (key,)).fetchone()
+            if row is None or row[1] != 'pending':
+                return False
+            body = row[0]
+            # Also protect preexisting ledgers created before payload checks.
+            # Local validation failure must not become sending/unknown.
+            validate_telegram_text(body)
+            claimed = db.execute("UPDATE reports SET state='sending' WHERE report_key=? AND state='pending' AND body=?", (key, body)).rowcount
             if not claimed:
                 return False
-            body = db.execute("SELECT body FROM reports WHERE report_key=?", (key,)).fetchone()[0]
         # Claim commits BEFORE external I/O. A crash never reverts to pending.
         try:
             mid = sender.send(body)
