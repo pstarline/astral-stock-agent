@@ -1,5 +1,6 @@
 """Exercise the exact inline workflow without credentials or network access."""
 from copy import deepcopy
+import json
 from pathlib import Path
 import textwrap
 from types import SimpleNamespace
@@ -172,3 +173,97 @@ def test_workflow_has_no_automatic_trigger_checkout_or_extra_secret():
     assert 'GITHUB_OUTPUT' not in text and 'GITHUB_STEP_SUMMARY' not in text
     assert 'api.github.com' not in text
     assert 'timeout-minutes: 2' in text
+
+
+def run_entrypoint(monkeypatch, responses=None, failure=None):
+    """Run the exact entrypoint with fake Telegram responses, including its error handler."""
+    import time
+    import urllib.request
+    values = {
+        'getWebhookInfo': {'url': ''},
+        'getMe': {'id': 99, 'is_bot': True, 'username': 'example_bot'},
+        'getUpdates': [update()],
+        'sendMessage': {'message_id': 1, 'chat': {'id': 42, 'type': 'private'}},
+    }
+    values.update(responses or {})
+    calls = []
+    class Response:
+        def __init__(self, result):
+            self.raw = json.dumps({'ok': True, 'result': result}).encode()
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def read(self, size):
+            return self.raw[:size]
+    class Opener:
+        def open(self, request, timeout):
+            method = request.full_url.rsplit('/', 1)[1]
+            calls.append(method)
+            if failure and method == failure[0]:
+                raise failure[1]
+            return Response(values[method])
+    monkeypatch.setattr(urllib.request, 'build_opener', lambda *_: Opener())
+    monkeypatch.setattr(time, 'time', lambda: 1000)
+    body = WORKFLOW.read_text().split("          python3 - <<'PY'\n", 1)[1].rsplit('          PY', 1)[0]
+    scope = {'__name__': '__main__'}
+    try:
+        exec(compile(textwrap.dedent(body), str(WORKFLOW), 'exec'), scope)
+    except SystemExit as error:
+        assert error.code == 2
+        return calls, False
+    return calls, True
+
+
+@pytest.mark.parametrize('token,expected', [('', '비어 있습니다'), ('"secret"', '토큰 형식이 잘못됐습니다')])
+def test_secret_failure_has_actionable_diagnostic_without_api(script, monkeypatch, capsys, token, expected):
+    monkeypatch.setenv('TELEGRAM_BOT_TOKEN', token)
+    calls, success = run_entrypoint(monkeypatch)
+    output = capsys.readouterr().out
+    assert not success and calls == []
+    assert expected in output and '진단 단계: secret' in output and '전송 시도: 없음' in output
+    assert '"secret"' not in output
+
+
+def test_copy_paste_surrounding_whitespace_is_accepted(script, monkeypatch, capsys):
+    monkeypatch.setenv('TELEGRAM_BOT_TOKEN', '  123456:' + 'x' * 30 + '\n')
+    calls, success = run_entrypoint(monkeypatch)
+    assert success and calls[-1] == 'sendMessage'
+    assert '123456' not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('status,expected', [
+    (401, '인증 실패'), (403, '접근 거부'), (404, '토큰 전체'),
+    (409, '충돌'), (429, '요청 제한'), (500, 'HTTP 오류'),
+])
+def test_http_failure_never_prints_sensitive_url_or_body(script, monkeypatch, capsys, status, expected):
+    from urllib.error import HTTPError
+    failure = HTTPError('https://api.telegram.org/botPRIVATE_TOKEN/getWebhookInfo', status, 'PRIVATE_REASON', {}, None)
+    calls, success = run_entrypoint(monkeypatch, failure=('getWebhookInfo', failure))
+    output = capsys.readouterr().out
+    assert not success and calls == ['getWebhookInfo']
+    assert expected in output and '전송 시도: 없음' in output
+    assert 'PRIVATE' not in output and 'https://' not in output
+
+
+@pytest.mark.parametrize('responses,expected', [
+    ({'getWebhookInfo': {'url': 'https://PRIVATE_WEBHOOK'}}, '기존 웹훅'),
+    ({'getUpdates': []}, '개인 메시지를 찾지 못했습니다'),
+    ({'getUpdates': [update(), update(43)]}, '여러 개인 대화'),
+    ({'getUpdates': [update()] * 100}, '대기 메시지 상한'),
+])
+def test_recipient_block_has_specific_diagnostic_and_no_send(script, monkeypatch, capsys, responses, expected):
+    calls, success = run_entrypoint(monkeypatch, responses=responses)
+    output = capsys.readouterr().out
+    assert not success and 'sendMessage' not in calls
+    assert expected in output and '전송 시도: 없음' in output
+    assert 'PRIVATE' not in output
+
+
+def test_send_timeout_is_uncertain_and_never_retried(script, monkeypatch, capsys):
+    calls, success = run_entrypoint(monkeypatch, failure=('sendMessage', TimeoutError('PRIVATE_TOKEN')))
+    output = capsys.readouterr().out
+    assert not success and calls.count('sendMessage') == 1
+    assert '진단 단계: send' in output and '전송 시도: 있음' in output
+    assert '대조하기 전 재실행하지 마세요' in output
+    assert 'PRIVATE' not in output
