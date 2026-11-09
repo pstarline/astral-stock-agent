@@ -181,6 +181,18 @@ SQLite 파일은 실행 간 유지되는 비공개 볼륨에 있어야 한다. �
 미리보기는 전체 보고서를 유지하며, 전송을 위해 내용을 자르거나 자동 분할하지 않는다.
 기존 원장의 잘못된 pending 본문도 상태를 바꾸지 않고 차단한다.
 
+장애 점검은 다음 읽기 전용 명령으로 상태별 건수만 확인할 수 있다.
+
+```bash
+python -m astral_stock_agent.cli inspect-outbox --database /private-volume/reports.sqlite
+```
+
+기존 비공개 원장을 SQLite `mode=ro`로 열며 생성·선점·전송·복구하지 않는다.
+본문·보고 키·메시지 ID·경로는 출력하지 않는다. `sending/unknown`이 있으면
+`operator_reconciliation_required=true`와 종료 코드 2를 반환한다. 정상 조회는 0,
+저장소 오류도 2이며 고정 오류 문구로 구분한다. 결과는 조회 시점의 집계다.
+0이나 빈 원장은 수신/운영 준비의 증명이 아니다. Public CI의 운영 조회는 차단한다.
+
 Telegram API 승인 응답은 사람의 수신·열람 확인이 아니다. `sending` 또는
 `unknown` 상태는 중복 발송 방지를 위해 자동 복구하지 않는다. 수신 메시지와
 Telegram 기록을 사람이 대조하고 복구 정책을 구현한 뒤 처리한다. 현재 도구에는

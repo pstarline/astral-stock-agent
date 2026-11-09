@@ -15,6 +15,20 @@ from .preflight import normalize_preflight, render_preflight
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "inspect-outbox":
+        parser = argparse.ArgumentParser(description="Read private outbox state counts; never sends or repairs")
+        parser.add_argument("--database", type=Path, required=True)
+        args = parser.parse_args(argv[1:])
+        try:
+            if os.getenv("GITHUB_ACTIONS"):
+                raise DeliveryError("operational inspection prohibited in public CI")
+            counts = Outbox(args.database, read_only=True).status_counts()
+            unresolved = counts["sending"] + counts["unknown"]
+            print(json.dumps({"counts": counts, "operator_reconciliation_required": bool(unresolved)}, sort_keys=True))
+            return 2 if unresolved else 0
+        except (OSError, ValueError, sqlite3.Error, DeliveryError):
+            print("Outbox inspection blocked: private initialized storage required")
+            return 2
     if argv and argv[0] == "init-outbox":
         parser = argparse.ArgumentParser(description="Explicitly initialize a private outbox; never sends")
         parser.add_argument("--database", type=Path, required=True)
