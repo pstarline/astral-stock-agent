@@ -849,3 +849,27 @@ https://heyastral.ai/docs/alerts-notifications
 https://core.telegram.org/bots/api#sendmessage,
 https://docs.github.com/en/actions/concepts/security/secrets,
 https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow
+
+## 후속 실행 — Telegram 설정 전용 예외 승인 및 재검토 (2026-11-09 KST)
+
+- 사용자는 "보안상 문제가 없다면 승인할게"라고 답했다. 이전에 설명한 설정 전용 토큰
+  사용/최근 봇 메시지 조회/같은 개인 대화의 ID 안내에 대한 조건부 승인이다.
+  실거래·계좌 연결·주기 보고·운영 데이터 전송으로 확대하지 않는다.
+- PR #21 head 72b67cc103f0ef5ed3e8b6ad8a2856408a07290f와 최신 main dcb726d를
+  다시 확인했다. 열린 PR은 #21 하나이고 해당 head test는 success, 보호규칙 비활성/
+  rulesets 없음이다. 기존 작업·auto-stock은 변경하지 않았다.
+- 코드 재검토에서 승인 범위의 중대한 토큰 노출/오발송 문제를 발견하지 않았다.
+  고정 Telegram HTTPS 대상·리디렉션 거절·원문 오류 비출력·한 단계 Secret 주입·
+  checkout/외부 액션/아티팩트/쓰기 권한 부재를 확인했다. 실행자/main/수동 이벤트를
+  이중 검사하며 직접 입력한 단일 개인 대화로 그 대화 자신의 ID만 반환한다.
+  다른 사용자의 명령이 있어도 계좌/토큰/타인의 ID를 보내거나 운영 대상을 자동 저장하지 않는다.
+  모호한 여러 대화는 중단한다. 이는 독립 외부 보안 감사 또는 무위험 보장이 아니다.
+- 이 검토로 사용자 조건을 충족한 것으로 판단해 설정 전용 예외를 승인 상태로 반영했다.
+  변경은 승인 기록이며 워크플로/Python 코드는 이전 665개 테스트/CI 성공본과 동일하다.
+  최종 문서 head의 CI까지 성공한 뒤 PR #21을 병합한다. 실제 병합 결과는 원격 PR로 확인한다.
+- 실제 설정 작업은 아직 실행하지 않았다. 봇 토큰 유효성·메시지 수신·CHAT_ID 등록은 미검증이다.
+  다음은 사용자가 봇에게 /astral_setup을 직접 보낸 후 10분 안에 main 수동 작업을 실행하고,
+  그 봇 대화로 받은 숫자를 TELEGRAM_CHAT_ID Secret에 등록하는 일이다.
+  연결 앱에는 workflow_dispatch 기능이 없어 가능한 것으로 주장하지 않는다.
+- MVP/전체 상태는 앞선 기록과 동일하게 미완료다. 신규 결제/봇 실제 전송/백테스트는0회이며
+  GPT-Work/GitHub 잔여량과 모델/추론 고정은 확인하지 못했다. 추가 승인 요청은 없다.
