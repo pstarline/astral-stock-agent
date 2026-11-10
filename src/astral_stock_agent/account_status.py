@@ -1,9 +1,23 @@
 """Limited observation alerts explicitly distinct from trading performance."""
 import hashlib
 import json
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from .account_observation import normalize_account_observation
+from .report import InvalidSnapshot, text
+
+
+def account_status_key(source, account_ref, now):
+    """Same immutable namespace for file previews and private collected runs."""
+    try:
+        if source not in ('fixture', 'astral_mcp') or not isinstance(now, datetime) or now.utcoffset() is None:
+            raise ValueError
+        day = now.astimezone(ZoneInfo('Asia/Seoul')).date().isoformat()
+        return hashlib.sha256(json.dumps(['paper_account_status_v1', source,
+                                         text(account_ref), day]).encode()).hexdigest()
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        raise InvalidSnapshot('invalid account status scope or clock') from None
 
 
 def render_account_status(bundle, *, verified_us_symbols, now):
@@ -15,6 +29,11 @@ def render_account_status(bundle, *, verified_us_symbols, now):
     the delivery boundary. No unknown accounting field is promoted to zero.
     """
     observation = normalize_account_observation(bundle, verified_us_symbols=verified_us_symbols, now=now)
+    return _render_observation(observation, account_ref=bundle['account_ref'], now=now)
+
+
+def _render_observation(observation, *, account_ref, now):
+    # Internal only: callers must normalize original official responses first.
     day = now.astimezone(ZoneInfo('Asia/Seoul')).date().isoformat()
     prefix = '[검증용 예제 · 실제 거래 기록 아님]\n' if observation['source'] == 'fixture' else ''
     def amount(field):
@@ -40,6 +59,4 @@ def render_account_status(bundle, *, verified_us_symbols, now):
         '위험 한도·원장 대조·장애 복구 상태: 미검증',
         '신규 주문 권한 없음 / 완전한 일일 매매 보고 아님',
     ])
-    key = hashlib.sha256(json.dumps(['paper_account_status_v1', observation['source'],
-                                   bundle['account_ref'], day]).encode()).hexdigest()
-    return key, body
+    return account_status_key(observation['source'], account_ref, now), body
