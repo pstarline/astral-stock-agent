@@ -30,6 +30,38 @@ def _unique_json_object(pairs):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "audit-research":
+        # This command handles private recorded evidence only, never API calls.
+        # Suppress argparse's reflection of mistakenly pasted configuration.
+        class ResearchParser(argparse.ArgumentParser):
+            def error(self, message):
+                raise ValueError("invalid research arguments")
+
+        parser = ResearchParser(description="Compare private recorded SMA evidence; never deploys or sends")
+        parser.add_argument("manifest", type=Path)
+        parser.add_argument("prices", type=Path)
+        parser.add_argument("--us-symbol", action="append", required=True)
+        try:
+            args = parser.parse_args(argv[1:])
+            if os.getenv("GITHUB_ACTIONS"):
+                raise ValueError("private research prohibited in public CI")
+            from .research_data import MAX_BYTES
+            from .research_review import review_sma_evidence
+            # Bound actual reads as well as reported file size.
+            with args.manifest.open("rb") as stream:
+                raw_manifest = stream.read(1_000_001)
+            if len(raw_manifest) > 1_000_000:
+                raise ValueError("manifest too large")
+            manifest = json.loads(raw_manifest, object_pairs_hook=_unique_json_object)
+            with args.prices.open("rb") as stream:
+                prices = stream.read(MAX_BYTES + 1)
+            result = review_sma_evidence(manifest, prices, verified_us_symbols=args.us_symbol,
+                                         now=datetime.now(timezone.utc))
+            print(json.dumps(result, sort_keys=True))
+            return 0 if result["curves_match"] else 2
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError):
+            print("Research audit blocked: complete private evidence and explicit scope required")
+            return 2
     if argv and argv[0] == "check-telegram":
         parser = argparse.ArgumentParser(description="Check private bot/chat metadata; never sends or reads messages")
         # argparse's default unknown-argument error echoes supplied values.

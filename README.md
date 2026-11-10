@@ -151,6 +151,43 @@ python -m astral_stock_agent.cli examples/daily_reconciliation.json --reconcile 
 근거가 필요한 사례, 누락된 기초 장부와 재배포/다른 실행 회차는 자동 보정하지 않는다.
 원본 장부와 거래 기록을 변경하지 않고 대조한 보고 복사본만 반환한다.
 
+## 기록된 전략 검증 자료 재현
+
+```bash
+python -m astral_stock_agent.cli audit-research private/research.json private/prices.csv --us-symbol SPY
+```
+
+`audit-research`는 완전한 일봉 CSV 검증 → 정규장 누락 검사 → 고정 수량 SMA 후보의
+다음 거래일 시가·비용 계산 → Astral 전체 곡선 대조를 연결한다. 네트워크 호출이나
+백테스트 재실행 없이 기록된 자료를 사용하며 입력을 수정하거나 원장을 만들지 않는다.
+Public Actions에서는 파일을 읽기 전에 차단하며 전송·배포 옵션을 받지 않는다.
+실제 입력과 출력은 비공개 연구 자료로 취급한다. 사용자가 직접 실행할 설정 작업은 아니다.
+
+비공개 manifest v1의 필드는 다음과 같다. 이는 프로젝트 내부 전달 형식이며 Astral API가 아니다.
+
+| 필드 | 내용 |
+| --- | --- |
+| `version` | 정수 `1` |
+| `price_response` | CSV와 함께 받은 `astral_price_get`의 구조화 응답. 체크섬·행 수·일봉 메타데이터 필요 |
+| `backtest_response` | 정확한 성공 실행의 전체 비축약 `astral_backtest_get` 응답. MCP `structuredContent` 포장도 허용 |
+| `expected_run` | `backtest_id`, 정수 `strategy_id`, 명시한 정수 `first_compared_index` |
+| `research` | `symbol`, `start`, `end`, `first_day`, `last_day`, `trade_from`, `window`, `units`, `initial_cash`, `commission_bps`, `slippage_bps`, `label_convention` |
+
+연구 날짜는 ISO 형식이며 `start/end`는 시간대 포함 범위, 나머지 날짜는 `YYYY-MM-DD`다.
+금액·수량·비용은 명시한 십진 문자열 또는 정수, `window`는 정수다.
+`label_convention`은 `session_date_at_utc_midnight` 또는
+`session_date_at_new_york_midnight`를 원자료에 맞게 명시한다.
+원자료를 자르거나 비교 경계를 추측하지 않는다. 비교 시작 인덱스는 외부의 첫 판단 가능
+라벨 및 로컬의 첫 판단 가능 종가와 같아야 한다. 다른 워밍업이면 별도 연구 가정으로
+`trade_from`을 명시해야 하며, 그 조정이 전략 동등성의 증거가 되지는 않는다.
+
+출력은 비교/불일치 건수·최대 금액 차이·가정 체결 건수·마지막 미실행 결정 유무와
+검증 한계만 포함한다. 원본 시세·전략/계좌 ID는 출력하지 않는다.
+전체 곡선 일치 시 종료 코드0, 불일치 또는 불완전한 자료는2다.
+코드0도 외부 규칙·비용·기업행위·실제 Paper 체결이나 배포 승인을 뜻하지 않는다.
+연구 설정은 입력자의 가정이며 외부 실행의 설정과 일치하는지는 별도 검증 대상이다.
+마지막 종가 결정을 체결로 바꾸거나 날짜를 이동시켜 곡선을 맞추지 않는다.
+
 ## 운영 경계
 
 Astral이 전략 실행·주문·체결을 담당한다. Python 보고 모듈에는 주문, 배포,
