@@ -1,5 +1,48 @@
 # 개발 상태 — 2026-11-10 (한국 시간)
 
+## 최신 실행 — 무료 운영환경 조사와 외부 인증 장애 확인 (2026-11-10 KST)
+
+- 시작 Public main1ec7d4c4aeb8469c399b373e6a6c5468ac6bcdf6, 열린 PR0개,
+  해당 main Python checks42805808512 성공과 PR #33 통합 코드를 확인했다.
+  기존 검증은Python3.11.18/928 passed다. 이번에는 코드/테스트/개발 PR을 새로 만들지 않았다.
+- 가장 중요한 미완료 항목인 비공개 운영 연결을 공식 자료로 조사했다.
+  PythonAnywhere 신규 무료 계정은 예약 작업을 지원하지 않고 Render Cron은 최소 월1USD다.
+  Render 무료 파일시스템은 임시이며 영속 디스크도 없다. 사용자 무료/영속 조건에 부합하지 않는다.
+- Cloudflare Workers Free의 예약 실행과 D1 Free의 영속 DB는 운영 후보로 남긴다.
+  D1 Free는 조회/쓰기/저장 한도 초과 시 오류로 중단한다. 계정 생성/결제/배포는 하지 않았다.
+  Python Worker 파일시스템은 임시여서 현재 POSIX SQLite Outbox를 그대로 영속 원장으로
+  사용할 수 없다. D1 저장 계층/런타임·무료 CPU 한도에 대한 검증이 추가로 필요하다.
+  Cloudflare 연결 플러그인 검색은 결과0개였으며 연결/권한이 있다고 주장하지 않는다.
+- Astral 공식 MCP 문서는 외부 클라이언트의 브라우저 로그인/사용자 동의를 안내한다.
+  공식 MCP 문서/설정 페이지/알림 문서에서 무인 실행용 API 키, 읽기 전용 scope,
+  refresh token 갱신/회전·유효기간의 구체적 계약을 확인하지 못했다.
+  미지원이라고 단정하지 않으며, 기존 ChatGPT OAuth/Telegram Secret을 추출하거나
+  새 OAuth 등록·동의·범위 확대를 실행하지 않았다. 실패한 인증 요청을 반복하지 않았다.
+- 현재 핵심 장애는 외부에서 사용할 공식 읽기 전용 인증과 무인 갱신 방식의 확인이다.
+  필요한 고객센터 답변은 독립 클라이언트 등록 방법, 계좌/배포 읽기 전용 권한,
+  refresh token/회전/유효기간과 예약 읽기의 공식 지원 여부다.
+  기존 회계 원장/일봉 체결 의미 문의와 구분한다. 사용자가 전달할 수 있도록 질문을 안내한다.
+- 인증 계약과 환경 연결 전에는 호스트만 만들어도 자동 조회/보고가 실행되지 않는다.
+  가정에 의존한 새 인증 SDK/스토리지 복제/형식적 PR을 만들지 않고 확인된 장애를 기록한다.
+  다음 우선순위는 위 공식 답변 확보 후 무료 환경의 저장 계층/인증 연결을 좁게 구현하는 것이다.
+  고정 Telegram 수신은 완료됐으며 실제 계좌 상태 전송·미국 주식 Paper/일일 손익 MVP와
+  전체 프로젝트는 미완료다. 공개 탐색은 MVP 이후이며 주간 실행 비활성을 유지한다.
+- 실제 계좌 조회/Telegram 전송/주문/배포/신규 인증/결제/예약 변경0회,
+  auto-stock/BTC 변경없음. 사용량 잔여치·모델/추론 고정은 미확인이다.
+  필요한 사용자 도움은 위 외부 인증 문의를 고객센터에 추가하고 답변을 전달하는 것이다.
+
+조사한 공식 근거(2026-11-10):
+- https://heyastral.ai/docs/mcp
+- https://heyastral.ai/mcp
+- https://heyastral.ai/docs/alerts-notifications
+- https://developers.cloudflare.com/workers/platform/pricing/
+- https://developers.cloudflare.com/workers/configuration/cron-triggers/
+- https://developers.cloudflare.com/workers/languages/python/stdlib/
+- https://developers.cloudflare.com/d1/platform/pricing/
+- https://help.pythonanywhere.com/pages/ScheduledTasks
+- https://render.com/docs/cronjobs
+- https://render.com/docs/free
+
 ## 최신 실행 — 비공개 제한 상태 단일 실행 통합 (2026-11-10 KST)
 
 - 시작 Public main2d9443928f5836d00a7816e7d014eaaed2a304d2, 열린 PR0개,
