@@ -1,4 +1,4 @@
-name: Telegram fixed test (approval required, manual only)
+name: Telegram fixed connection test (owner manual only)
 on:
   workflow_dispatch:
 permissions: {}
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      # Pending user approval: do not merge or dispatch this proposal.
+      # User authorized one fixed connection test on 2026-11-10.
       # No checkout, external actions, installations, account input or artifacts.
       - name: Send one fixed connection test to the verified private chat
         env:
