@@ -1,0 +1,136 @@
+name: Telegram fixed test (approval required, manual only)
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: telegram-fixed-test
+  cancel-in-progress: false
+jobs:
+  check:
+    if: github.repository == 'pstarline/astral-stock-agent' && github.ref == 'refs/heads/main' && github.actor == 'pstarline' && github.triggering_actor == 'pstarline' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      # Pending user approval: do not merge or dispatch this proposal.
+      # No checkout, external actions, installations, account input or artifacts.
+      - name: Send one fixed connection test to the verified private chat
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from urllib.error import HTTPError
+          from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+          class CheckError(Exception):
+              pass
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  raise CheckError()
+
+          MESSAGE = ('[Astral 연결 점검]\n'
+                     '고정 테스트 알림입니다.\n'
+                     '계좌 조회·배포·매매·손익 보고는 실행하지 않았습니다.\n'
+                     '자동 일일 보고는 아직 비활성 상태입니다.')
+
+          PHASE = 'runtime'
+          ERRORS = {
+              'RUNTIME': '소유자의 main 수동 실행이 필요합니다.',
+              'TOKEN': 'TELEGRAM_BOT_TOKEN 등록 내용을 확인하세요.',
+              'CHAT': 'TELEGRAM_CHAT_ID에 개인 대화의 숫자만 등록하세요.',
+              'HTTP_401': 'Telegram 인증 실패입니다. 토큰을 확인하세요.',
+              'HTTP_403': 'Telegram 접근 거부입니다.',
+              'HTTP_404': 'Telegram 대상을 확인할 수 없습니다.',
+              'HTTP_400': '설정 대화를 확인할 수 없습니다. ID와 봇 대화 시작을 확인하세요.',
+              'HTTP_429': 'Telegram 요청 제한입니다. 자동 재시도하지 않습니다.',
+              'HTTP_ERROR': 'Telegram HTTP 오류입니다. 원문은 출력하지 않습니다.',
+              'PRIVATE_CHAT': '설정 ID와 개인 대화가 일치하지 않습니다.',
+          }
+
+          def positive_id(value):
+              return type(value) is int and 0 < value < 2**52
+
+          def api(token, method, payload):
+              if method not in ('getMe', 'getChat', 'sendMessage'):
+                  raise CheckError()
+              if method == 'sendMessage' and (
+                  payload != {'chat_id': payload.get('chat_id'), 'text': MESSAGE, 'protect_content': True}
+                  or not positive_id(payload.get('chat_id'))
+              ):
+                  raise CheckError()
+              request = Request(
+                  'https://api.telegram.org/bot' + token + '/' + method,
+                  data=json.dumps(payload).encode('utf-8'),
+                  headers={'Content-Type': 'application/json'}, method='POST',
+              )
+              try:
+                  with build_opener(NoRedirect()).open(request, timeout=10) as response:
+                      raw = response.read(65537)
+              except HTTPError as error:
+                  code = 'HTTP_' + str(error.code) if type(error.code) is int and error.code in (400, 401, 403, 404, 429) else 'HTTP_ERROR'
+                  raise CheckError(code) from None
+              if len(raw) > 65536:
+                  raise CheckError()
+              result = json.loads(raw)
+              if not isinstance(result, dict) or result.get('ok') is not True or 'result' not in result:
+                  raise CheckError()
+              return result['result']
+
+          def main():
+              global PHASE
+              PHASE = 'runtime'
+              expected = {
+                  'GITHUB_ACTIONS': 'true', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+                  'GITHUB_REPOSITORY': 'pstarline/astral-stock-agent',
+                  'GITHUB_REF': 'refs/heads/main', 'GITHUB_ACTOR': 'pstarline',
+                  'GITHUB_TRIGGERING_ACTOR': 'pstarline', 'GITHUB_RUN_ATTEMPT': '1',
+              }
+              if any(os.environ.get(key) != value for key, value in expected.items()):
+                  raise CheckError('RUNTIME')
+              PHASE = 'secret'
+              token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
+              if not re.fullmatch(r'[0-9]+:[A-Za-z0-9_-]{20,}', token):
+                  raise CheckError('TOKEN')
+              chat = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
+              if not re.fullmatch(r'[1-9][0-9]{0,15}', chat) or not positive_id(int(chat)):
+                  raise CheckError('CHAT')
+              chat_id = int(chat)
+              PHASE = 'identity'
+              bot = api(token, 'getMe', {})
+              if not isinstance(bot, dict) or bot.get('is_bot') is not True or not positive_id(bot.get('id')):
+                  raise CheckError()
+              if bot['id'] == chat_id:
+                  raise CheckError('PRIVATE_CHAT')
+              PHASE = 'destination'
+              destination = api(token, 'getChat', {'chat_id': chat_id})
+              if not isinstance(destination, dict) or destination.get('type') != 'private' or type(destination.get('id')) is not int or destination['id'] != chat_id:
+                  raise CheckError('PRIVATE_CHAT')
+              PHASE = 'send'
+              message = api(token, 'sendMessage', {'chat_id': chat_id, 'text': MESSAGE, 'protect_content': True})
+              if (
+                  not isinstance(message, dict) or not positive_id(message.get('message_id'))
+                  or not isinstance(message.get('chat'), dict)
+                  or type(message['chat'].get('id')) is not int or message['chat']['id'] != chat_id
+                  or message['chat'].get('type') != 'private' or message.get('text') != MESSAGE
+              ):
+                  raise CheckError()
+              print(json.dumps({'telegram_api_accepted': True, 'recipient_receipt_verified': False}))
+
+          if __name__ == '__main__':
+              try:
+                  main()
+              except Exception as error:
+                  phase = PHASE if PHASE in ('runtime', 'secret', 'identity', 'destination', 'send') else 'unknown'
+                  code = error.args[0] if type(error) is CheckError and len(error.args) == 1 and type(error.args[0]) is str else ''
+                  print('진단 단계: ' + phase + ' / ' + ERRORS.get(code, '연결 확인 실패입니다. 원문 오류는 출력하지 않습니다.'))
+                  if PHASE == 'send':
+                      print('전송 결과 미확인입니다. 자동 재시도하지 않습니다. 대화 확인 전 새 실행도 하지 마세요.')
+                  else:
+                      print('전송 전 중단했습니다. 자동 재시도하지 않습니다.')
+                  raise SystemExit(2) from None
+          PY
