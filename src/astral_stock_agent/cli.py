@@ -12,6 +12,7 @@ from .activity import normalize_activity, render_activity
 from .reconciliation import reconcile_daily
 from .preflight import normalize_preflight, render_preflight
 from .account_observation import render_account_observation
+from .closing_books import ClosingBooks
 
 
 def _unique_json_object(pairs):
@@ -114,9 +115,16 @@ def main(argv=None):
     parser.add_argument("--account-observation", action="store_true", help="Preview official cash fields with unknown accounting; never sends")
     parser.add_argument("--activity", action="store_true", help="Preview raw MCP activity; never sends")
     parser.add_argument("--reconcile", action="store_true", help="Reconcile closing books; required for operational --send")
+    parser.add_argument("--book-directory", type=Path,
+                        help="Load previous and persist current private closing book; requires --reconcile")
     parser.add_argument("--us-symbol", action="append", default=[], help="Independently verified US-equity symbol for activity scope")
     args = parser.parse_args(argv)
     try:
+        if args.book_directory is not None:
+            if not args.reconcile or args.preflight or args.account_observation or args.activity:
+                raise InvalidSnapshot("closing-book storage requires separate reconciliation mode")
+            if os.getenv("GITHUB_ACTIONS"):
+                raise InvalidSnapshot("private closing-book access prohibited in public CI")
         if args.snapshot.stat().st_size > 1_000_000:
             raise InvalidSnapshot("snapshot too large")
         snapshot = json.loads(args.snapshot.read_text(), object_pairs_hook=_unique_json_object)
@@ -149,8 +157,17 @@ def main(argv=None):
                 raise InvalidSnapshot("reconciliation cannot be mixed with activity preview")
             if snapshot["current"]["source"] == "fixture" and not args.send:
                 now = datetime.fromisoformat(snapshot["current"]["collected_at"].replace("Z", "+00:00"))
-            reconciled = reconcile_daily(snapshot["previous"], snapshot["current"], snapshot["accounting"],
-                                         verified_us_symbols=args.us_symbol, now=now)
+            if args.book_directory is not None:
+                if "previous" in snapshot:
+                    raise InvalidSnapshot("inline and stored baselines cannot be mixed")
+                if args.send and snapshot["current"]["source"] != "astral_mcp":
+                    raise InvalidSnapshot("fixture delivery prohibited")
+                reconciled = ClosingBooks(args.book_directory).reconcile_and_save(
+                    snapshot["current"], snapshot["accounting"],
+                    verified_us_symbols=args.us_symbol, now=now)
+            else:
+                reconciled = reconcile_daily(snapshot["previous"], snapshot["current"], snapshot["accounting"],
+                                             verified_us_symbols=args.us_symbol, now=now)
             if not args.send:
                 print(render(reconciled, now=now)[1])
                 return 0
