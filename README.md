@@ -73,6 +73,30 @@ GitHub의 Telegram 토큰/Chat ID는 수동 점검에서 인증·개인 대화 �
 공식 MCP initialize 요청은401과 공식 resource metadata를 반환했다. 해당 metadata에서
 읽기 전용 권한 범위는 확인하지 못했으며 ChatGPT 인증정보를 추출/재사용하지 않는다.
 
+## 제한 계좌 상태 알림
+
+사용자가 선택한 중간 단계다. 기존 `--account-observation`은 계속 전송 불가
+미리보기이며, 별도 `--account-status`가 공식 현금·검증된 대상의 배포 상태만 알린다.
+잔액 기준 시각·평가액·손익·주문·체결·보유·위험 한도는 확인되지 않았다고 표시한다.
+현금으로 평가액을 대신하거나 배포 부재로 거래/손익0을 추정하지 않는다.
+
+```bash
+python -m astral_stock_agent.cli private/preflight.json --account-status --us-symbol SPY
+python -m astral_stock_agent.cli private/preflight.json --account-status --us-symbol SPY --send --database private/reports.sqlite
+```
+
+입력은 기존 계좌 관측의 공식 응답 전달 형식이다. --send에는 신뢰된 비공개 수집기가
+방금 수집한 응답, 해당 환경의 Telegram 설정과 초기화된 비공개 영속 Outbox가 필요하다.
+다른 미리보기/대조/종가 장부 저장 모드와 혼합할 수 없다. 기존 매매 성과 보고는
+계속 --reconcile이 필수다. 합성 전송과 Public CI 실제 출처 출력/전송은 금지한다.
+
+키는 계좌별 한국 시간 알림 날짜와 별도 모드 이름을 사용하며 거래일을 뜻하지 않는다.
+동일 본문 반복은 재전송하지 않고, 같은 날짜의 변경 본문은 기존 불변 원장과 충돌해 중단한다.
+실패/불명확 sending/unknown도 자동 재전송하지 않는다. 이 모드는 실제 조회 수신 시각만
+표시하며 현재 시점의 정상 거래·수익·배포 승인을 증명하지 않는다.
+코드 연결은 완료했지만 실제 수집/비밀 설정/운영 호스트/첫 알림 수신은 아직 미검증이다.
+기존 GitHub Secret을 Work로 자동 이전하지 않으며 Public CI 정책 예외도 확대하지 않는다.
+
 ## Astral 조회 내역 미리보기
 
 ```bash
