@@ -3,6 +3,7 @@
 No authentication acquisition, scheduler, initialization or order authority.
 This is an integration entry point, not an installed operational service.
 """
+import asyncio
 from datetime import datetime, timedelta, timezone
 import os
 
@@ -10,6 +11,9 @@ from .account_observation import collect_account_observation
 from .account_status import account_status_key, _render_observation
 from .delivery import DeliveryError, Outbox
 from .report import timestamp
+
+
+COLLECTION_TIMEOUT_SECONDS = 30
 
 
 def _result(state, attempted):
@@ -42,9 +46,11 @@ async def run_account_status(call_tool, *, account_ref, strategy_ref, verified_u
         state = outbox.state(key)
         if state is not None:
             return _result(state, False)
-        observation = await collect_account_observation(
+        if not callable(call_tool) or not callable(getattr(sender, 'send', None)):
+            raise DeliveryError()
+        observation = await asyncio.wait_for(collect_account_observation(
             call_tool, account_ref=account_ref, strategy_ref=strategy_ref,
-            verified_us_symbols=verified_us_symbols, clock=clock)
+            verified_us_symbols=verified_us_symbols, clock=clock), timeout=COLLECTION_TIMEOUT_SECONDS)
         finished = clock()
         if not timedelta(0) <= finished - started <= timedelta(minutes=5):
             raise DeliveryError()

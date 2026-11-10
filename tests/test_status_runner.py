@@ -214,3 +214,27 @@ def test_competing_initial_workers_send_at_most_once(runtime, different):
         assert sum(isinstance(r, DeliveryError) for r in results) == 1
     assert len(calls) == 4 and len(sends) == 1
     assert Outbox(path).status_counts()['sent'] == 1
+
+
+@pytest.mark.parametrize('bad', ['reader', 'sender'])
+def test_missing_transport_configuration_stops_before_collection_or_enqueue(runtime, bad):
+    with pytest.raises(DeliveryError):
+        invoke(runtime, **({'read': object()} if bad == 'reader' else {'sender': object()}))
+    assert not runtime[2] and not runtime[3]
+    assert not any(Outbox(runtime[1]).status_counts().values())
+
+
+def test_hung_reads_are_cancelled_without_retry_or_enqueue(runtime, monkeypatch):
+    import astral_stock_agent.status_runner as runner
+    monkeypatch.setattr(runner, 'COLLECTION_TIMEOUT_SECONDS', 0.01)
+    cancelled = []
+    async def hung(tool, arguments):
+        runtime[2].append(tool)
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.append(tool)
+    with pytest.raises(DeliveryError):
+        invoke(runtime, read=hung)
+    assert len(runtime[2]) == 2 and sorted(cancelled) == sorted(runtime[2])
+    assert not runtime[3] and not any(Outbox(runtime[1]).status_counts().values())
