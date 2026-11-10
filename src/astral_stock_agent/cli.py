@@ -13,6 +13,7 @@ from .reconciliation import reconcile_daily
 from .preflight import normalize_preflight, render_preflight
 from .account_observation import render_account_observation
 from .closing_books import ClosingBooks
+from .account_status import render_account_status
 
 
 def _unique_json_object(pairs):
@@ -113,6 +114,7 @@ def main(argv=None):
     parser.add_argument("--database", type=Path, help="Existing durable PRIVATE runtime volume path")
     parser.add_argument("--preflight", action="store_true", help="Preview account/deployment prerequisites; never sends")
     parser.add_argument("--account-observation", action="store_true", help="Preview official cash fields with unknown accounting; never sends")
+    parser.add_argument("--account-status", action="store_true", help="Limited account/deployment alert; unknown accounting stays unknown")
     parser.add_argument("--activity", action="store_true", help="Preview raw MCP activity; never sends")
     parser.add_argument("--reconcile", action="store_true", help="Reconcile closing books; required for operational --send")
     parser.add_argument("--book-directory", type=Path,
@@ -120,6 +122,9 @@ def main(argv=None):
     parser.add_argument("--us-symbol", action="append", default=[], help="Independently verified US-equity symbol for activity scope")
     args = parser.parse_args(argv)
     try:
+        if args.account_status and (args.reconcile or args.activity or args.preflight
+                                    or args.account_observation or args.book_directory is not None):
+            raise InvalidSnapshot("limited account status is a separate report mode")
         if args.book_directory is not None:
             if not args.reconcile or args.preflight or args.account_observation or args.activity:
                 raise InvalidSnapshot("closing-book storage requires separate reconciliation mode")
@@ -130,7 +135,7 @@ def main(argv=None):
         snapshot = json.loads(args.snapshot.read_text(), object_pairs_hook=_unique_json_object)
         now = datetime.now(timezone.utc)
         if args.send:
-            if not args.reconcile:
+            if not args.reconcile and not args.account_status:
                 raise InvalidSnapshot("daily accounting reconciliation required for delivery")
             if os.getenv("GITHUB_ACTIONS"):
                 raise DeliveryError("operational delivery prohibited in public CI")
@@ -182,9 +187,17 @@ def main(argv=None):
             print(render_activity(observation))
             return 0
         # Fixtures are preview-only, so the checked-in example remains usable.
-        if isinstance(snapshot, dict) and snapshot.get("source") == "fixture" and not args.send:
+        if isinstance(snapshot, dict) and snapshot.get("source") == "fixture" and not args.send and not args.account_status:
             now = datetime.fromisoformat(snapshot["collected_at"].replace("Z", "+00:00"))
-        key, body = render(snapshot, now=now)
+        if args.account_status:
+            if isinstance(snapshot, dict) and snapshot.get("source") == "fixture" and not args.send:
+                now = max(datetime.fromisoformat(x["received_at"].replace("Z", "+00:00"))
+                          for x in snapshot["responses"].values())
+            if os.getenv("GITHUB_ACTIONS") and snapshot.get("source") != "fixture":
+                raise InvalidSnapshot("private account status prohibited in public CI")
+            key, body = render_account_status(snapshot, verified_us_symbols=args.us_symbol, now=now)
+        else:
+            key, body = render(snapshot, now=now)
         if not args.send:
             print(body)
             return 0
