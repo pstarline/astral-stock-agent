@@ -9,7 +9,7 @@ import hashlib
 import json
 import re
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Context, Decimal, DecimalException, Inexact, InvalidOperation, localcontext
 from zoneinfo import ZoneInfo
 
 from .sessions import SessionError, require_closed_session
@@ -76,8 +76,13 @@ def render(snapshot, *, now=None):
     """
     now = now or datetime.now(timezone.utc)
     try:
-        return _render(snapshot, now)
-    except (KeyError, TypeError, AttributeError, InvalidOperation, SessionError):
+        # Accounting must not inherit another module's precision, rounding,
+        # exponent bounds or traps. 96 digits cover products/sums of bounded
+        # 40-character amounts; extreme exponent spreads fail on value loss.
+        with localcontext(Context(prec=96)) as context:
+            context.traps[Inexact] = True
+            return _render(snapshot, now)
+    except (KeyError, TypeError, AttributeError, DecimalException, SessionError):
         raise InvalidSnapshot("missing or invalid snapshot fields") from None
 
 

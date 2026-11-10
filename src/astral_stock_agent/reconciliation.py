@@ -7,7 +7,7 @@ This module cannot convert activity observations into authoritative books.
 
 import copy
 from datetime import date, datetime, timezone
-from decimal import Decimal
+from decimal import Context, Decimal, DecimalException, Inexact, localcontext
 
 from .report import InvalidSnapshot, money, render, symbol, text, timestamp
 from .sessions import SessionError, latest_closed_session, require_closed_session
@@ -48,8 +48,12 @@ def reconcile_daily(previous, current, accounting, *, verified_us_symbols, now=N
     """
     now = now or datetime.now(timezone.utc)
     try:
-        return _reconcile(previous, current, accounting, set(verified_us_symbols), now)
-    except (InvalidSnapshot, SessionError, KeyError, TypeError, AttributeError, ValueError):
+        # Keep fees, cash and exact share counts independent of caller context.
+        # Do not silently round extreme exponent spreads into matching books.
+        with localcontext(Context(prec=96)) as context:
+            context.traps[Inexact] = True
+            return _reconcile(previous, current, accounting, set(verified_us_symbols), now)
+    except (InvalidSnapshot, SessionError, KeyError, TypeError, AttributeError, ValueError, DecimalException):
         raise ReconciliationError("daily reconciliation blocked: missing or inconsistent evidence") from None
 
 
