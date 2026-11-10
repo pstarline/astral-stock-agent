@@ -73,6 +73,10 @@ GitHub의 Telegram 토큰/Chat ID는 수동 점검에서 인증·개인 대화 �
 공식 MCP initialize 요청은401과 공식 resource metadata를 반환했다. 해당 metadata에서
 읽기 전용 권한 범위는 확인하지 못했으며 ChatGPT 인증정보를 추출/재사용하지 않는다.
 
+CLI는 잘못된 인자를 고정 메시지와 종료 코드2로 거부한다. 인자 값·옵션명·경로·URL을
+오류에 반영하지 않으며, 도움말은 `--help`로 확인한다. Telegram 토큰을 명령줄 인자로
+전달하는 기능은 없고 비공개 운영 환경에서 설정한다.
+
 ## 제한 계좌 상태 알림
 
 사용자가 선택한 중간 단계다. 기존 `--account-observation`은 계속 전송 불가

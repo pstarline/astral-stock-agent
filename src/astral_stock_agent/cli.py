@@ -30,7 +30,26 @@ def _unique_json_object(pairs):
     return result
 
 
+class _InvalidArguments(ValueError):
+    pass
+
+
+class _PrivateArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        # argparse diagnostics include unknown values, flags and private paths.
+        # Never emit that diagnostic, even for missing arguments.
+        raise _InvalidArguments("invalid command arguments") from None
+
+
 def main(argv=None):
+    try:
+        return _main(argv)
+    except _InvalidArguments:
+        print("Command blocked: invalid arguments; use --help", file=sys.stderr)
+        return 2
+
+
+def _main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "audit-research":
         # This command handles private recorded evidence only, never API calls.
@@ -65,7 +84,7 @@ def main(argv=None):
             print("Research audit blocked: complete private evidence and explicit scope required")
             return 2
     if argv and argv[0] == "check-telegram":
-        parser = argparse.ArgumentParser(description="Check private bot/chat metadata; never sends or reads messages")
+        parser = _PrivateArgumentParser(description="Check private bot/chat metadata; never sends or reads messages")
         # argparse's default unknown-argument error echoes supplied values.
         # Reject them without reflecting a mistakenly pasted secret.
         if argv[1:] not in ([], ["-h"], ["--help"]):
@@ -82,7 +101,7 @@ def main(argv=None):
             print("Telegram check blocked: private configuration or connection unverified")
             return 2
     if argv and argv[0] == "inspect-outbox":
-        parser = argparse.ArgumentParser(description="Read private outbox state counts; never sends or repairs")
+        parser = _PrivateArgumentParser(description="Read private outbox state counts; never sends or repairs")
         parser.add_argument("--database", type=Path, required=True)
         args = parser.parse_args(argv[1:])
         try:
@@ -96,7 +115,7 @@ def main(argv=None):
             print("Outbox inspection blocked: private initialized storage required")
             return 2
     if argv and argv[0] == "init-outbox":
-        parser = argparse.ArgumentParser(description="Explicitly initialize a private outbox; never sends")
+        parser = _PrivateArgumentParser(description="Explicitly initialize a private outbox; never sends")
         parser.add_argument("--database", type=Path, required=True)
         args = parser.parse_args(argv[1:])
         try:
@@ -108,7 +127,7 @@ def main(argv=None):
         except (OSError, ValueError, sqlite3.Error, DeliveryError):
             print("Outbox initialization blocked: private storage required")
             return 2
-    parser = argparse.ArgumentParser(description="Validate an Astral paper snapshot and preview a daily report")
+    parser = _PrivateArgumentParser(description="Validate an Astral paper snapshot and preview a daily report")
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--send", action="store_true", help="Send to configured private Telegram destination")
     parser.add_argument("--database", type=Path, help="Existing durable PRIVATE runtime volume path")
