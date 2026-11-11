@@ -51,6 +51,27 @@ def main(argv=None):
 
 def _main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "preview-market-sma":
+        parser = _PrivateArgumentParser(description="Collect official compact daily data and preview a research candidate; never records or sends")
+        parser.add_argument("configuration", type=Path)
+        parser.add_argument("--us-symbol", action="append", required=True)
+        args = parser.parse_args(argv[1:])
+        try:
+            if os.getenv("GITHUB_ACTIONS"):
+                raise ValueError("private market collection prohibited in public CI")
+            from .market_data import collect_sma_preview
+            with args.configuration.open("rb") as stream:
+                raw = stream.read(1_000_001)
+            if len(raw) > 1_000_000:
+                raise ValueError("configuration too large")
+            config = json.loads(raw, object_pairs_hook=_unique_json_object)
+            _, _, _, body = collect_sma_preview(config,
+                api_key=os.getenv("ALPHAVANTAGE_API_KEY"), verified_us_symbols=args.us_symbol)
+            print(body)
+            return 0
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, OverflowError, DeliveryError):
+            print("Market preview blocked: private configuration/key or current daily data unavailable")
+            return 2
     if argv and argv[0] == "record-simulation":
         parser = _PrivateArgumentParser(
             description="Record one independently calculated closed Paper session; never sends")

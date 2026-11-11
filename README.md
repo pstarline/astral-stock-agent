@@ -102,6 +102,42 @@ Astral 전략 버전이나 검증 통과를 뜻하지 않는다. 같은 규칙�
 파라미터 최적화·운영 전략 선정/교체·새 시세 수집/주문/원장 저장/실제 Telegram 발송은 없다.
 Public CI는 입력 접근 전에 차단하고, 오류/인자·중복 JSON 보호는 기존 명령과 같다.
 
+## 공식 일봉 수집과 연구용 보고 미리보기
+
+```bash
+python -m astral_stock_agent.cli preview-market-sma private/market-candidate.json --us-symbol IBM
+```
+
+비공개 구성의 스키마는 `alpha_sma_preview_v1`이며 필드는 `symbol`, `initial_cash`,
+`commission_bps`, `slippage_bps`, `rule`이다. `rule`은 기존 자체 SMA의 명시 ID/창/고정 수량/
+신호 시작일과 같다. Compact 최대100개이므로 이 경로의 창은2~99다. 자동 기본값/최적화는 없다.
+신호 시작일과 warmup은 반환된 관측 범위를 만족해야 하며 부족하면 계산을 중단한다.
+
+호출자가 별도로 승인받아 비공개 환경에 연결한 `ALPHAVANTAGE_API_KEY`를 환경변수로
+사용한다. 명령줄 키 인자·토큰 출력·Public CI 실제 수집/보고·기존 GitHub Secret 추출은 없다.
+명령 추가가 개인 키 발급/신규 동의/정기 운영을 승인한 것은 아니다. 이번 실제 연결 확인은
+공식 문서의 공개 IBM demo뿐이며 사용자 개인 키는 만들거나 등록하지 않았다.
+
+Alpha Vantage 공식 TIME_SERIES_DAILY의 기본 JSON/Compact만 요청한다. 공식 문서에서
+이 일봉은 raw-as-traded이며 Compact는 무료 키로 제공되는 최근 최대100개다.
+full/adjusted/realtime 등 다른 함수·파라미터를 요청하지 않는다. 고정 HTTPS 원천에1회만
+요청하고15초 I/O timeout/1MB로 제한한다. 완료 후1분 초과 결과도 거부한다. API 오류·요청 제한·지연·형식 변경은 중단하며 자동 재시도하지 않는다.
+
+전체 원문 JSON의 중복 필드, 종목·세션 시간대·최신 폐장일, OHLCV·거래일 누락/미종료를
+검사한 뒤 모든 행을 보존해 내부 CSV로 정규화한다. 날짜를 UTC 자정에 붙이는 것은
+세션 날짜 라벨 변환이며 자정 체결을 뜻하지 않는다. 조정 가격을 raw로 바꾸어 가정하지 않는다.
+`DailyMarketData`는 CSV/검사된 이력과 원문·정규화 해시를 비공개 호출자에게 반환하며
+기본 repr에는 가격 행을 포함하지 않는다. 임의 입력의 원천 진위는 해시만으로 증명되지 않는다.
+
+이 명령은 최근 관측 창의 자체 후보 재계산이다. 창이 매일 움직이므로 이 결과를 고정 시작일의
+forward 원장에 바로 넣지 않는다. 과거 이력을 보존하고 겹치는 날짜의 수정·누락을 대조하는
+아카이브가 다음 단계다. 원장 쓰기/Outbox/실제 Telegram 전송/전략 채택·주문은 없다.
+배당·분할·전체 신호 인과성은 미검증으로 남긴다. 공식 IBM demo 100개에 대한 실제 정상화
+확인과 합성 HTTP CI 통과를 실제 영속 Paper 운영/일일 수신 성공으로 확대하지 않는다.
+
+근거: [일봉 문서](https://www.alphavantage.co/documentation/#daily),
+[무료 키/한도 안내](https://www.alphavantage.co/support/). 확인일2026-11-11.
+
 ## Paper 실행 전 읽기 점검
 
 `preflight.collect_preflight`는 인증된 콜백으로 계좌·배포 두 조회만 수행한다.
