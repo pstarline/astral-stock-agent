@@ -60,6 +60,33 @@ python -m astral_stock_agent.cli preview-simulation examples/independent-simulat
 비공개 운영 및 실제 Telegram 일일 수신은 다음 작업이다. 고객센터 답변은 Astral 경로
 재검토에 사용하되 자체 모의매매 MVP의 필수 조건으로 두지 않는다.
 
+## 시세에서 자체 SMA 후보 신호 생성
+
+```bash
+python -m astral_stock_agent.cli preview-sma examples/independent-sma-candidate.json examples/synthetic-daily.csv --us-symbol SPY
+```
+
+기존 자체 연구용 `sma_close_decisions`를 독립 CSV/가상 체결/일일 보고에 연결한다.
+수작업 `close_signals` 대신 `independent_sma_candidate_v1` 스키마의 `rule`을 명시한다.
+규칙 ID는 `close_gt_trailing_sma_fixed_units_v1`만 지원하며 `window`(2~252), 양수 고정
+`units`, `trade_from`을 반드시 제공한다. 시세/기간/라벨/초기 가상 현금/비용 필드는
+`preview-simulation`과 동일하다. 다른 규칙/외부 소스 코드/혼합 수동 신호는 거부한다.
+
+규칙은 당일을 포함한 최근 window개 종가 평균보다 종가가 높으면 지정 수량 보유,
+같거나 낮으면 미보유다. 선행 시세는 warmup에만 쓰고 trade_from 전에는 매매하지 않는다.
+충분한 warmup과 다음 시가가 있는 평가 신호가 필요하다. 종가 신호는 다음 정규장 시가에만
+가상 체결하며 마지막 종가 신호는 미실행 상태로 보고한다. 갭/미종료 정규장은 계산 전에 차단한다.
+
+Python 함수 `preview_independent_sma`는 생성 manifest·계산 결과·보고 미리보기를 반환한다.
+생성 manifest는 기존 `preview_independent_paper`로 다시 계산할 수 있고 향후 가상 원장에
+인계할 수 있다. 규칙/명시 매개변수/라벨·체결 정책의 해시 버전은 자체 후보 식별용이며
+Astral 전략 버전이나 검증 통과를 뜻하지 않는다. 같은 규칙의 시세 연장은 버전을 바꾸지 않는다.
+
+합성 예제의 SMA2·1주·가상 현금/비용은 사용법 확인용이며 운영 설정이나 추천 전략이 아니다.
+이 후보는 기존 자체 연구 규칙이고 공개 SPY Volatility Reversal 원본을 재현한 것이 아니다.
+파라미터 최적화·운영 전략 선정/교체·새 시세 수집/주문/원장 저장/실제 Telegram 발송은 없다.
+Public CI는 입력 접근 전에 차단하고, 오류/인자·중복 JSON 보호는 기존 명령과 같다.
+
 ## Paper 실행 전 읽기 점검
 
 `preflight.collect_preflight`는 인증된 콜백으로 계좌·배포 두 조회만 수행한다.

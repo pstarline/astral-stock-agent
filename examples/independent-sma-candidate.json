@@ -1,0 +1,18 @@
+{
+  "schema": "independent_sma_candidate_v1",
+  "symbol": "SPY",
+  "price_sha256": "443d20ebd3680c154e9b5eb78bfb00487fc9d0edb33cc83b6c26d9c38dd46ffd",
+  "price_count": 4,
+  "first_day": "2026-01-02",
+  "last_day": "2026-01-07",
+  "label_convention": "session_date_at_utc_midnight",
+  "initial_cash": "100",
+  "commission_bps": "5",
+  "slippage_bps": "5",
+  "rule": {
+    "id": "close_gt_trailing_sma_fixed_units_v1",
+    "window": 2,
+    "units": "1",
+    "trade_from": "2026-01-02"
+  }
+}
