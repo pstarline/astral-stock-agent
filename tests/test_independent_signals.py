@@ -171,3 +171,12 @@ def test_public_ci_blocks_before_reading_or_running_rule(monkeypatch,capsys):
     monkeypatch.setattr(Path,'open',forbidden)
     assert main(['preview-sma','private.json','private.csv','--us-symbol','SPY'])==2
     assert 'blocked' in capsys.readouterr().out
+
+
+def test_checkpoint_digest_covers_the_final_candidate_report():
+    manifest,accounting,body=preview()
+    _,generic_body=preview_independent_paper(manifest,inputs()[1],
+                                           verified_us_symbols=['SPY'],now=NOW)
+    assert body != generic_body
+    assert accounting['report_sha256'] == hashlib.sha256(body.encode()).hexdigest()
+    assert accounting['report_sha256'] != hashlib.sha256(generic_body.encode()).hexdigest()

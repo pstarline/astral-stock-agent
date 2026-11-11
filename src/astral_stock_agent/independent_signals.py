@@ -82,4 +82,7 @@ def preview_independent_sma(spec, prices, *, verified_us_symbols, now):
                    + ' / 다음 거래일 시가 가상 체결 / 자동 채택되지 않은 자체 연구 후보')
     body += '\n' + explanation
     validate_telegram_text(body)
+    # Bind the final candidate explanation as well as the generic report. A
+    # downstream checkpoint must never receive a hash for the shorter body.
+    accounting['report_sha256'] = hashlib.sha256(body.encode()).hexdigest()
     return manifest, accounting, body
