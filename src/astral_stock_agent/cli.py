@@ -51,8 +51,8 @@ def main(argv=None):
 
 def _main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] == "preview-simulation":
-        parser = _PrivateArgumentParser(description="Preview independent price-only daily simulation; never sends")
+    if argv and argv[0] in ("preview-simulation", "preview-sma"):
+        parser = _PrivateArgumentParser(description="Preview independent price-only signals/accounting; never sends")
         parser.add_argument("manifest", type=Path)
         parser.add_argument("prices", type=Path)
         parser.add_argument("--us-symbol", action="append", required=True)
@@ -70,8 +70,13 @@ def _main(argv=None):
             manifest = json.loads(raw, object_pairs_hook=_unique_json_object)
             with args.prices.open("rb") as stream:
                 prices = stream.read(MAX_BYTES + 1)
-            _, body = preview_independent_paper(manifest, prices,
-                verified_us_symbols=args.us_symbol, now=datetime.now(timezone.utc))
+            if argv[0] == "preview-sma":
+                from .independent_signals import preview_independent_sma
+                _, _, body = preview_independent_sma(manifest, prices,
+                    verified_us_symbols=args.us_symbol, now=datetime.now(timezone.utc))
+            else:
+                _, body = preview_independent_paper(manifest, prices,
+                    verified_us_symbols=args.us_symbol, now=datetime.now(timezone.utc))
             print(body)
             return 0
         except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError, DeliveryError):
