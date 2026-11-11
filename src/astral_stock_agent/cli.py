@@ -108,7 +108,10 @@ def _main(argv=None):
             if os.getenv("GITHUB_ACTIONS"):
                 raise DeliveryError("operational inspection prohibited in public CI")
             counts = Outbox(args.database, read_only=True).status_counts()
-            unresolved = counts["sending"] + counts["unknown"]
+            # A pending row may be left by a crash after enqueue. The status
+            # runner skips it on restart, so inspection must require attention
+            # too. This does not classify it as sent or authorize a retry.
+            unresolved = counts["pending"] + counts["sending"] + counts["unknown"]
             print(json.dumps({"counts": counts, "operator_reconciliation_required": bool(unresolved)}, sort_keys=True))
             return 2 if unresolved else 0
         except (OSError, ValueError, sqlite3.Error, DeliveryError):

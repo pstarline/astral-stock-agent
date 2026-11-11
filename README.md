@@ -414,9 +414,11 @@ python -m astral_stock_agent.cli inspect-outbox --database /private-volume/repor
 ```
 
 기존 비공개 원장을 SQLite `mode=ro`로 열며 생성·선점·전송·복구하지 않는다.
-본문·보고 키·메시지 ID·경로는 출력하지 않는다. `sending/unknown`이 있으면
+본문·보고 키·메시지 ID·경로는 출력하지 않는다. `pending/sending/unknown`이 있으면
 `operator_reconciliation_required=true`와 종료 코드 2를 반환한다. 정상 조회는 0,
 저장소 오류도 2이며 고정 오류 문구로 구분한다. 결과는 조회 시점의 집계다.
+`pending`도 저장 후 중단된 보고일 수 있으며 제한 상태 실행기는 재시작 시 이를 자동 처리하지
+않으므로 운영자 확인이 필요하다. 이 표시는 전송 결과나 재전송 권한을 확정하지 않는다.
 0이나 빈 원장은 수신/운영 준비의 증명이 아니다. Public CI의 운영 조회는 차단한다.
 
 Telegram API 승인 응답은 사람의 수신·열람 확인이 아니다. `sending` 또는
