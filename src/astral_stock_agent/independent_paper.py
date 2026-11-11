@@ -4,6 +4,7 @@ This preview accepts explicit close signals and CSV prices. It is not a market
 feed, a validated strategy, an operational ledger, or evidence of broker fills.
 """
 from datetime import date, timezone
+import hashlib
 from zoneinfo import ZoneInfo
 from decimal import Context, Decimal, localcontext
 
@@ -90,9 +91,11 @@ def preview_independent_paper(manifest, prices, *, verified_us_symbols, now):
         day_pnl = latest.equity - previous_equity
         unrealized = units * history.bars[-1].close - basis
         todays_fills = tuple(f for f in result.fills if f.execution_index == len(days) - 1)
+        daily_units_change = sum((f.units_change for f in todays_fills), Decimal(0))
         accounting = {
             'kind': 'independent_price_only_simulation', 'session': days[-1],
             'strategy': strategy, 'version': version, 'symbol': symbol,
+            'label_convention': convention,
             'initial_cash': str(initial), 'cash': str(result.cash), 'units': str(units),
             'equity': str(latest.equity), 'daily_pnl': str(day_pnl),
             'cumulative_pnl': str(latest.equity - initial),
@@ -101,6 +104,9 @@ def preview_independent_paper(manifest, prices, *, verified_us_symbols, now):
             'daily_unrealized_change': str(day_pnl - day_realized),
             'daily_commission': str(sum((f.commission for f in todays_fills), Decimal(0))),
             'cumulative_commission': str(result.commissions),
+            'commission_bps': str(_decimal(manifest['commission_bps'])),
+            'slippage_bps': str(_decimal(manifest['slippage_bps'])),
+            'daily_units_change': str(daily_units_change),
             'daily_simulated_fills': len(todays_fills),
             'cumulative_simulated_fills': len(result.fills),
             'pending_close_change': str(changes[-1]),
@@ -134,4 +140,5 @@ def preview_independent_paper(manifest, prices, *, verified_us_symbols, now):
             '과거 입력 재계산이며 영속 Paper 운영·전략 검증·Telegram 수신의 증명이 아님',
         ])
     validate_telegram_text(body)
+    accounting['report_sha256'] = hashlib.sha256(body.encode()).hexdigest()
     return accounting, body
