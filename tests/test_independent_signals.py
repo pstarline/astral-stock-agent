@@ -180,3 +180,14 @@ def test_checkpoint_digest_covers_the_final_candidate_report():
     assert body != generic_body
     assert accounting['report_sha256'] == hashlib.sha256(body.encode()).hexdigest()
     assert accounting['report_sha256'] != hashlib.sha256(generic_body.encode()).hexdigest()
+
+
+def test_generated_sma_report_can_bootstrap_the_private_forward_ledger(tmp_path, monkeypatch):
+    from astral_stock_agent.independent_ledger import IndependentPaperLedger
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    directory = tmp_path / 'ledger'
+    directory.mkdir(mode=0o700)
+    _, accounting, body = preview()
+    result = IndependentPaperLedger(directory).append(
+        accounting, body, now=NOW, bootstrap=True)
+    assert result['created'] is True and result['session'] == DAYS[-1]

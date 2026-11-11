@@ -38,6 +38,21 @@ python -m astral_stock_agent.cli examples/paper_snapshot.json
 python -m astral_stock_agent.cli preview-simulation examples/independent-simulation.json examples/synthetic-daily.csv --us-symbol SPY
 ```
 
+검증한 비공개 입력을 최신 폐장 거래일의 forward Paper 체크포인트로 기록할 때는
+소유자 전용 `0700` 영속 디렉터리를 먼저 준비하고 별도 명령을 사용한다. 최초 거래일만
+`--bootstrap`을 명시하며 이후에는 정확한 전 거래일 체크포인트가 있어야 한다.
+
+```bash
+python -m astral_stock_agent.cli record-simulation private-manifest.json private-prices.csv \
+  --ledger-directory /private/durable/paper-ledger --us-symbol SPY --bootstrap
+```
+
+명령은 보고를 전송하지 않는다. 거래일별 계산과 같은 보고 본문을 `0600` 불변 파일로
+저장하고, 재시작 시 전 거래일의 보유·미실행 신호·손익·수수료·가상 체결 건수와 대조한다.
+동일 재실행만 허용하며 변경·누락·거래일 건너뛰기는 운영자 대조 대상으로 차단한다.
+로컬 권한·fsync·해시 연결은 호스트 영속성, 백업, 시세 진위 또는 외부 공격자에 대한
+서명을 증명하지 않는다. Public CI에서는 입력/원장 접근 전에 거부한다.
+
 두 예제는 전부 합성 시세/신호다. 실제 전략·가격·수익률이 아니며 전송할 수 없다.
 명령은 Astral 인증/API 없이 CSV 검사 → 명시 신호 → 다음 시가 가상 체결 → 한국어
 일일 보고를 계산한다. 공개 CI에서는 입력 파일 접근 전에 차단한다. `--send`는 없다.

@@ -51,8 +51,43 @@ def main(argv=None):
 
 def _main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "record-simulation":
+        parser = _PrivateArgumentParser(
+            description="Record one independently calculated closed Paper session; never sends")
+        parser.add_argument("manifest", type=Path)
+        parser.add_argument("prices", type=Path)
+        parser.add_argument("--ledger-directory", type=Path, required=True)
+        parser.add_argument("--us-symbol", action="append", required=True)
+        parser.add_argument("--bootstrap", action="store_true")
+        args = parser.parse_args(argv[1:])
+        try:
+            if os.getenv("GITHUB_ACTIONS"):
+                raise ValueError("private simulation ledger prohibited in public CI")
+            from .research_data import MAX_BYTES
+            from .independent_paper import preview_independent_paper
+            from .independent_ledger import IndependentPaperLedger
+            with args.manifest.open("rb") as stream:
+                raw = stream.read(1_000_001)
+            if len(raw) > 1_000_000:
+                raise ValueError("manifest too large")
+            manifest = json.loads(raw, object_pairs_hook=_unique_json_object)
+            with args.prices.open("rb") as stream:
+                prices = stream.read(MAX_BYTES + 1)
+            now = datetime.now(timezone.utc)
+            accounting, body = preview_independent_paper(
+                manifest, prices, verified_us_symbols=args.us_symbol, now=now)
+            result = IndependentPaperLedger(args.ledger_directory).append(
+                accounting, body, now=now, bootstrap=args.bootstrap)
+            print(json.dumps({key: result[key] for key in ('bootstrap', 'created', 'session')},
+                             sort_keys=True))
+            return 0
+        except (OSError, ValueError, TypeError, KeyError, AttributeError,
+                OverflowError, DeliveryError):
+            print("Simulation record blocked: private ledger or complete closed-session evidence required")
+            return 2
     if argv and argv[0] in ("preview-simulation", "preview-sma"):
-        parser = _PrivateArgumentParser(description="Preview independent price-only signals/accounting; never sends")
+        parser = _PrivateArgumentParser(
+            description="Preview independent price-only signals/accounting; never sends")
         parser.add_argument("manifest", type=Path)
         parser.add_argument("prices", type=Path)
         parser.add_argument("--us-symbol", action="append", required=True)

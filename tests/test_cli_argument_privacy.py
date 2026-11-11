@@ -18,6 +18,8 @@ COMMANDS = [
     ['check-telegram'],
     ['preview-simulation', 'manifest.json', 'prices.csv', '--us-symbol', 'SPY'],
     ['preview-sma', 'candidate.json', 'prices.csv', '--us-symbol', 'SPY'],
+    ['record-simulation', 'manifest.json', 'prices.csv', '--ledger-directory', 'ledger',
+     '--us-symbol', 'SPY'],
 ]
 MARKER = 'SYNTHETIC_PRIVATE_VALUE'
 
@@ -63,7 +65,8 @@ def test_missing_required_arguments_are_safe_status_two(monkeypatch, capsys, arg
 
 
 @pytest.mark.parametrize('command', [[], ['inspect-outbox'], ['init-outbox'],
-                                     ['audit-research'], ['check-telegram'], ['preview-simulation'], ['preview-sma']])
+                                     ['audit-research'], ['check-telegram'], ['preview-simulation'],
+                                     ['preview-sma'], ['record-simulation']])
 def test_help_still_works_without_runtime_access(monkeypatch, capsys, command):
     with no_operational_access(monkeypatch):
         with pytest.raises(SystemExit) as result:
@@ -73,7 +76,7 @@ def test_help_still_works_without_runtime_access(monkeypatch, capsys, command):
     assert 'usage:' in output.out and output.err == ''
 
 
-@pytest.mark.parametrize('command', COMMANDS[:3] + [COMMANDS[-1]])
+@pytest.mark.parametrize('command', COMMANDS[:3] + COMMANDS[-2:])
 def test_actual_module_process_exits_two_without_argument_reflection(command):
     root = Path(__file__).resolve().parents[1]
     result = subprocess.run(
