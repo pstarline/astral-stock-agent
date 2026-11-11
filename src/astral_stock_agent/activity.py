@@ -193,17 +193,28 @@ async def collect_activity(call_tool, *, account_ref, strategy_ref, verified_us_
         responses[name] = envelope
         return _result(result)
 
-    accounts, deployments = await asyncio.gather(read("accounts", {}), read("deployments", {}))
+    async def read_batch(*requests):
+        # A failed stage must not leave authenticated reads running after the
+        # collector returns. Callbacks own their transport and must cooperate
+        # with cancellation. Suppress provider and cleanup exception details.
+        try:
+            async with asyncio.TaskGroup() as group:
+                tasks = [group.create_task(read(name, arguments)) for name, arguments in requests]
+        except Exception:
+            raise InvalidSnapshot("Astral read failed") from None
+        return [task.result() for task in tasks]
+
+    accounts, deployments = await read_batch(("accounts", {}), ("deployments", {}))
     # Admit scope BEFORE requesting any order/trade history.
     try:
         paper_deployment(accounts, deployments, account_ref=account_ref, strategy_ref=strategy_ref,
                          verified_us_symbols=verified_us_symbols)
     except (AstralBoundaryError, TypeError, AttributeError):
         raise InvalidSnapshot("intended US paper deployment unavailable") from None
-    await asyncio.gather(
-        read("orders", {"account_id": account_ref, "strategy_id": int(strategy_ref), "limit": LIMIT}),
-        read("trades", {"scope": "strategy", "strategy_id": int(strategy_ref),
-                        "lookback_days": lookback, "limit": LIMIT, "delivery": "inline"}),
+    await read_batch(
+        ("orders", {"account_id": account_ref, "strategy_id": int(strategy_ref), "limit": LIMIT}),
+        ("trades", {"scope": "strategy", "strategy_id": int(strategy_ref),
+                    "lookback_days": lookback, "limit": LIMIT, "delivery": "inline"}),
     )
     bundle = {"version": 1, "source": "astral_mcp", "account_ref": account_ref,
               "strategy_ref": strategy_ref, "lookback_days": lookback,

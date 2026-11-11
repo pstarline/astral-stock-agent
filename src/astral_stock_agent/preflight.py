@@ -91,7 +91,13 @@ async def collect_preflight(call_tool, *, account_ref, strategy_ref, verified_us
         except Exception:
             raise InvalidSnapshot('Paper prerequisite read failed') from None
 
-    rows = await asyncio.gather(*(read(name) for name in TOOLS))
+    try:
+        async with asyncio.TaskGroup() as group:
+            tasks = [group.create_task(read(name)) for name in TOOLS]
+    except Exception:
+        # Settle sibling reads and async cleanup before reporting failure.
+        raise InvalidSnapshot('Paper prerequisite read failed') from None
+    rows = [task.result() for task in tasks]
     return normalize_preflight({'version': 1, 'source': 'astral_mcp', 'account_ref': account_ref,
                                'strategy_ref': strategy_ref, 'responses': dict(rows)},
                               verified_us_symbols=verified_us_symbols, now=clock())
