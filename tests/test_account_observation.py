@@ -100,6 +100,72 @@ def test_collector_uses_only_official_account_and_deployment_reads():
     assert result['source'] == 'astral_mcp' and result['observed_cash_usd'] == '900.25'
 
 
+@pytest.mark.parametrize('failed_tool', list(TOOLS.values()))
+@pytest.mark.parametrize('cleanup_fails', [False, True])
+def test_failed_read_settles_other_read_before_returning(failed_tool, cleanup_fails):
+    async def scenario():
+        started = asyncio.Event()
+        closed = asyncio.Event()
+        children, calls = [], []
+
+        async def callback(tool, arguments):
+            children.append(asyncio.current_task())
+            calls.append((tool, arguments))
+            if tool == failed_tool:
+                await started.wait()
+                raise RuntimeError('PRIVATE_PROVIDER_ERROR')
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                # Model an async transport closing its connection on cancel.
+                await asyncio.sleep(0)
+                closed.set()
+                if cleanup_fails:
+                    raise RuntimeError('PRIVATE_CLEANUP_ERROR')
+
+        try:
+            with pytest.raises(InvalidSnapshot, match='^official paper account read failed$'):
+                await asyncio.wait_for(collect_account_observation(callback,
+                    account_ref=bundle()['account_ref'], strategy_ref=None,
+                    verified_us_symbols=['SPY'], clock=lambda: NOW), timeout=1)
+            assert closed.is_set(), 'failed collection returned with a live sibling read'
+            assert all(task.done() for task in children)
+            assert sorted(calls) == sorted((tool, {}) for tool in TOOLS.values())
+        finally:
+            # Clean up even when running this regression against the old code.
+            for child in children:
+                if not child.done():
+                    child.cancel()
+            await asyncio.gather(*children, return_exceptions=True)
+    asyncio.run(scenario())
+
+
+def test_caller_cancellation_settles_both_reads_and_propagates():
+    async def scenario():
+        started = asyncio.Event()
+        children, closed = [], []
+        async def callback(tool, arguments):
+            children.append(asyncio.current_task())
+            if len(children) == 2:
+                started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                await asyncio.sleep(0)
+                closed.append(tool)
+        operation = asyncio.create_task(collect_account_observation(callback,
+            account_ref=bundle()['account_ref'], strategy_ref=None,
+            verified_us_symbols=['SPY'], clock=lambda: NOW))
+        await asyncio.wait_for(started.wait(), timeout=1)
+        operation.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await operation
+        assert sorted(closed) == sorted(TOOLS.values())
+        assert all(child.done() for child in children)
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize('extra', [[], ['--send'], ['--send', '--reconcile'], ['--preflight'], ['--activity'], ['--reconcile']])
 def test_cli_is_preview_only_and_never_uses_sender_or_outbox(tmp_path, capsys, monkeypatch, extra):
     from astral_stock_agent import cli

@@ -57,6 +57,8 @@ async def collect_account_observation(call_tool, *, account_ref, strategy_ref,
 
     No authentication acquisition, order/trade queries, retries, persistence or
     delivery. Returned amounts remain private. The caller owns the connection.
+    On failure/cancellation, settle both callback tasks before returning. The
+    callback must cooperate with cancellation and close its own transport.
     """
     clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -68,7 +70,14 @@ async def collect_account_observation(call_tool, *, account_ref, strategy_ref,
         except Exception:
             raise InvalidSnapshot('official paper account read failed') from None
 
-    rows = await asyncio.gather(*(read(name) for name in TOOLS))
+    try:
+        async with asyncio.TaskGroup() as group:
+            tasks = [group.create_task(read(name)) for name in TOOLS]
+    except Exception:
+        # TaskGroup cancels and awaits siblings, including async cleanup. Do
+        # not expose an ExceptionGroup or provider/cleanup exception details.
+        raise InvalidSnapshot('official paper account read failed') from None
+    rows = [task.result() for task in tasks]
     bundle = {'version': 1, 'source': 'astral_mcp', 'account_ref': account_ref,
               'strategy_ref': strategy_ref, 'responses': dict(rows)}
     return normalize_account_observation(bundle, verified_us_symbols=verified_us_symbols, now=clock())
