@@ -51,6 +51,32 @@ def main(argv=None):
 
 def _main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "preview-simulation":
+        parser = _PrivateArgumentParser(description="Preview independent price-only daily simulation; never sends")
+        parser.add_argument("manifest", type=Path)
+        parser.add_argument("prices", type=Path)
+        parser.add_argument("--us-symbol", action="append", required=True)
+        args = parser.parse_args(argv[1:])
+        try:
+            # Private prices/signals must not enter public CI output.
+            if os.getenv("GITHUB_ACTIONS"):
+                raise ValueError("private simulation prohibited in public CI")
+            from .research_data import MAX_BYTES
+            from .independent_paper import preview_independent_paper
+            with args.manifest.open("rb") as stream:
+                raw = stream.read(1_000_001)
+            if len(raw) > 1_000_000:
+                raise ValueError("manifest too large")
+            manifest = json.loads(raw, object_pairs_hook=_unique_json_object)
+            with args.prices.open("rb") as stream:
+                prices = stream.read(MAX_BYTES + 1)
+            _, body = preview_independent_paper(manifest, prices,
+                verified_us_symbols=args.us_symbol, now=datetime.now(timezone.utc))
+            print(body)
+            return 0
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError, DeliveryError):
+            print("Simulation preview blocked: complete private prices, signals and explicit scope required")
+            return 2
     if argv and argv[0] == "audit-research":
         # This command handles private recorded evidence only, never API calls.
         # Suppress argparse's reflection of mistakenly pasted configuration.
@@ -245,3 +271,4 @@ def _main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

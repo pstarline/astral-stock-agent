@@ -1,6 +1,7 @@
 # Astral Stock Agent
 
-미국 주식 Astral Paper 운영과 Telegram 보고를 위한 Python 3.11 프로젝트.
+미국 주식 자체 모의매매와 Telegram 일일 보고를 우선하는 Python 3.11 프로젝트.
+2026-11-11 사용자 선택에 따라 Astral 문의 회신을 기다리지 않고 독립 실행 경로를 개발한다.
 현재는 **검증된 보고 계층의 첫 구현**이며, 자동매매 MVP는 아직 완료되지 않았다.
 기존 `pstarline/auto-stock`과 완전히 분리한다.
 
@@ -30,6 +31,34 @@ python -m astral_stock_agent.cli examples/paper_snapshot.json
 예제는 항상 `검증용 예제 · 실제 거래 기록 아님`으로 표시되며 전송할 수 없다.
 사용자가 개인 PC에 Python을 설치할 필요는 없다. 위 명령은 개발용 클라우드와
 나중에 연결할 Public CI를 위한 것이다.
+
+## 자체 모의매매 일일 보고 미리보기
+
+```bash
+python -m astral_stock_agent.cli preview-simulation examples/independent-simulation.json examples/synthetic-daily.csv --us-symbol SPY
+```
+
+두 예제는 전부 합성 시세/신호다. 실제 전략·가격·수익률이 아니며 전송할 수 없다.
+명령은 Astral 인증/API 없이 CSV 검사 → 명시 신호 → 다음 시가 가상 체결 → 한국어
+일일 보고를 계산한다. 공개 CI에서는 입력 파일 접근 전에 차단한다. `--send`는 없다.
+
+비공개 manifest는 예제의 `independent_price_simulation_v1` 스키마를 사용한다.
+전략명/버전/미국 주식 종목, CSV SHA256·행수, 최초/최종 거래일, 일봉 라벨 의미,
+가상 초기 현금·수수료/슬리피지(bp)를 전부 명시한다. `close_signals`는 모든 시세 날짜와
+같은 순서의 `{session, units_change}`이며 수량 변화는 소수 문자열로 받는다.
+각 종가 신호는 다음 거래일 시가에만 적용하고 마지막 신호는 미실행으로 보고한다.
+누락 거래일·미종료 정규장·불일치 해시/행수·현금 부족·공매도는 거부한다.
+`--us-symbol`은 호출자가 사전 확인한 미국 주식 범위이며 인증/검증의 자동 증명이 아니다.
+
+보고는 당일·누적 손익, 평균원가 기준 실현/미실현 손익과 당일 증감, 비용·가상 체결 건수,
+현금/보유/종가 평가액을 구분한다. 원가는 매수 수수료를 포함하고 실현 손익은 매도
+수수료를 차감한다. 슬리피지는 가상 체결가에 반영하므로 다시 비용으로 빼지 않는다.
+시세 진위/조정 방식·제공 신호 인과성은 미검증이며 배당·분할·세금·유동성은 미반영이다.
+입력 신호를 자동 생성하거나 특정 공개 전략을 채택하지 않는다.
+
+이 명령은 과거 입력 재계산이다. 매일 새 시세 수집, 독립 전략 규칙 검증, 영속 가상 원장,
+비공개 운영 및 실제 Telegram 일일 수신은 다음 작업이다. 고객센터 답변은 Astral 경로
+재검토에 사용하되 자체 모의매매 MVP의 필수 조건으로 두지 않는다.
 
 ## Paper 실행 전 읽기 점검
 
@@ -475,3 +504,4 @@ order의 `sizing_type=fixed_shares`와 `sizing_value`다. 수량을 생략하면
 
 [프로젝트 상태](docs/STATUS.md), [아키텍처](docs/ARCHITECTURE.md),
 [개발 지침](AGENTS.md)을 먼저 읽는다. 실거래는 별도 승인 단계다.
+
