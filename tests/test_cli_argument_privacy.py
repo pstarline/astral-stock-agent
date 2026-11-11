@@ -16,6 +16,7 @@ COMMANDS = [
     ['init-outbox', '--database', 'private.sqlite'],
     ['audit-research', 'manifest.json', 'prices.csv', '--us-symbol', 'SPY'],
     ['check-telegram'],
+    ['preview-simulation', 'manifest.json', 'prices.csv', '--us-symbol', 'SPY'],
 ]
 MARKER = 'SYNTHETIC_PRIVATE_VALUE'
 
@@ -61,7 +62,7 @@ def test_missing_required_arguments_are_safe_status_two(monkeypatch, capsys, arg
 
 
 @pytest.mark.parametrize('command', [[], ['inspect-outbox'], ['init-outbox'],
-                                     ['audit-research'], ['check-telegram']])
+                                     ['audit-research'], ['check-telegram'], ['preview-simulation']])
 def test_help_still_works_without_runtime_access(monkeypatch, capsys, command):
     with no_operational_access(monkeypatch):
         with pytest.raises(SystemExit) as result:
@@ -83,3 +84,4 @@ def test_actual_module_process_exits_two_without_argument_reflection(command):
     assert result.stdout == ''
     assert result.stderr == 'Command blocked: invalid arguments; use --help\n'
     assert MARKER not in result.stdout + result.stderr
+

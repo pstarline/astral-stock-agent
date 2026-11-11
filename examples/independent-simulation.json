@@ -1,0 +1,32 @@
+{
+  "schema": "independent_price_simulation_v1",
+  "strategy": "synthetic rule",
+  "version": "v1",
+  "symbol": "SPY",
+  "price_sha256": "443d20ebd3680c154e9b5eb78bfb00487fc9d0edb33cc83b6c26d9c38dd46ffd",
+  "price_count": 4,
+  "first_day": "2026-01-02",
+  "last_day": "2026-01-07",
+  "label_convention": "session_date_at_utc_midnight",
+  "initial_cash": "100",
+  "commission_bps": "0",
+  "slippage_bps": "0",
+  "close_signals": [
+    {
+      "session": "2026-01-02",
+      "units_change": "2"
+    },
+    {
+      "session": "2026-01-05",
+      "units_change": "0"
+    },
+    {
+      "session": "2026-01-06",
+      "units_change": "-1"
+    },
+    {
+      "session": "2026-01-07",
+      "units_change": "3"
+    }
+  ]
+}

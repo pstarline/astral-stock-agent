@@ -108,6 +108,26 @@ def read_daily_artifact(data, response, *, symbol, start, end):
     digest = hashlib.sha256(data).hexdigest()
     if artifact.get("sha256") != digest:
         raise ResearchDataError("artifact checksum mismatch")
+    return read_daily_csv(data, symbol=symbol, expected_sha256=digest,
+                          expected_count=count, start=start, end=end)
+
+
+def read_daily_csv(data, *, symbol, expected_sha256, expected_count, start, end):
+    """Parse independent CSV bytes with explicit transfer-integrity assertions.
+
+    No Astral response or authentication is required. A matching digest/count
+    does not certify provider authenticity or corporate-action adjustments.
+    """
+    if not isinstance(symbol, str) or not re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,14}", symbol):
+        raise ResearchDataError("invalid configured symbol")
+    if not isinstance(data, bytes) or not 0 < len(data) <= MAX_BYTES:
+        raise ResearchDataError("artifact byte size outside research limit")
+    count = expected_count
+    if type(count) is not int or not 0 < count <= MAX_BARS:
+        raise ResearchDataError("invalid daily row count")
+    digest = hashlib.sha256(data).hexdigest()
+    if expected_sha256 != digest:
+        raise ResearchDataError("artifact checksum mismatch")
     left, right = _timestamp(start), _timestamp(end)
     if left >= right:
         raise ResearchDataError("invalid research time range")
@@ -165,3 +185,4 @@ def require_aligned_history(histories):
     if not report["aligned"]:
         raise ResearchDataError("daily histories have missing or inconsistent bar labels")
     return report
+
