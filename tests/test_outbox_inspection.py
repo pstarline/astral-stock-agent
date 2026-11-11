@@ -45,7 +45,7 @@ def test_creation_cannot_be_combined_with_readonly(tmp_path, read_only):
     assert not path.exists()
 
 
-@pytest.mark.parametrize('state,expected_code', [('pending', 0), ('sent', 0), ('sending', 2), ('unknown', 2)])
+@pytest.mark.parametrize('state,expected_code', [('pending', 2), ('sent', 0), ('sending', 2), ('unknown', 2)])
 def test_cli_counts_and_manual_reconciliation_signal(tmp_path, monkeypatch, capsys, state, expected_code):
     monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
     path = tmp_path / 'reports.sqlite'
@@ -63,6 +63,45 @@ def test_cli_counts_and_manual_reconciliation_signal(tmp_path, monkeypatch, caps
     assert sum(result['counts'].values()) == 1
     assert result['operator_reconciliation_required'] == (expected_code == 2)
     assert 'private-' not in json.dumps(result)
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('state', ['pending', 'sending', 'unknown', 'sent'])
+def test_inspection_agrees_with_restart_that_skips_existing_daily_report(
+        tmp_path, monkeypatch, capsys, state):
+    import asyncio
+    from astral_stock_agent.account_status import account_status_key
+    from astral_stock_agent.status_runner import run_account_status
+    from test_account_observation import NOW, bundle
+
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    path = tmp_path / 'reports.sqlite'
+    box = Outbox(path, create=True)
+    account = bundle()['account_ref']
+    report_key = account_status_key('astral_mcp', account, NOW)
+    # Model a crash after enqueue, or a previous attempt whose state is known.
+    box.enqueue(report_key, 'synthetic private body')
+    with sqlite3.connect(path) as db:
+        db.execute('UPDATE reports SET state=?', (state,))
+    before = path.read_bytes()
+    async def forbidden_read(*args):
+        pytest.fail('restart retried collection')
+    class ForbiddenSender:
+        def send(self, body):
+            pytest.fail('restart retried delivery')
+    monkeypatch.setattr(cli, 'Telegram', lambda *args: pytest.fail('inspection opened sender'))
+
+    result = asyncio.run(run_account_status(forbidden_read, account_ref=account,
+        strategy_ref=None, verified_us_symbols=['SPY'], database=path,
+        sender=ForbiddenSender(), clock=lambda: NOW))
+    assert result['new_attempt'] is False
+    assert result['operator_reconciliation_required'] is (state != 'sent')
+    code = cli.main(['inspect-outbox', '--database', str(path)])
+    inspection = json.loads(capsys.readouterr().out)
+    assert inspection['operator_reconciliation_required'] == result['operator_reconciliation_required']
+    assert code == (0 if state == 'sent' else 2)
+    assert inspection['counts'][state] == 1
+    assert account not in json.dumps(inspection) and 'synthetic private body' not in json.dumps(inspection)
     assert path.read_bytes() == before
 
 
