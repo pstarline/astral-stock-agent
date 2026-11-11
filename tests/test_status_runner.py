@@ -133,6 +133,32 @@ def test_callback_error_is_sanitized_and_never_retried(runtime):
     assert not any(Outbox(runtime[1]).status_counts().values())
 
 
+@pytest.mark.parametrize('failed_tool', ['astral_broker_accounts_list', 'astral_deployments_list'])
+def test_partial_read_failure_closes_transport_before_runner_returns(runtime, failed_tool):
+    async def scenario():
+        started, closed = asyncio.Event(), asyncio.Event()
+        async def callback(tool, arguments):
+            runtime[2].append(tool)
+            if tool == failed_tool:
+                await started.wait()
+                raise RuntimeError('PRIVATE_PROVIDER_ERROR')
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                await asyncio.sleep(0)
+                closed.set()
+        with pytest.raises(DeliveryError, match='^private account status run blocked or delivery unconfirmed$'):
+            await asyncio.wait_for(run_account_status(callback,
+                account_ref=runtime[0]['account_ref'], strategy_ref=None,
+                verified_us_symbols=['SPY'], database=runtime[1], sender=runtime[5],
+                clock=lambda: NOW), timeout=1)
+        assert closed.is_set()
+        assert len(runtime[2]) == 2 and not runtime[3]
+        assert not any(Outbox(runtime[1]).status_counts().values())
+    asyncio.run(scenario())
+
+
 def test_public_ci_blocks_before_clock_storage_reads_or_network(runtime, monkeypatch):
     import astral_stock_agent.status_runner as runner
     def forbidden(*args):
