@@ -1,5 +1,14 @@
 # Astral Stock Agent
 
+비공개 시세 누적은 `price_archive.PriceArchive(directory).append(data,
+verified_us_symbols=[symbol], now=now, bootstrap=True)`로 시작할 수 있다.
+`data`는 기존 `normalize_alpha_daily`/`fetch_alpha_daily`의 검증 결과이며 이후 실행은
+`bootstrap=False`를 사용한다. 별도 소유자 전용 `0700` 영속 디렉터리가 필요하다.
+최근 창 밖의 과거 행을 유지한 누적 CSV가 `result.csv_bytes`로 반환되며 가격은 repr에 없다.
+전 거래일 누락·겹치는 가격 변경·시작일/종목 변경은 중단한다. 저장은 `0600` 불변 파일이며
+공개 CI에서 차단된다. 이 API는 네트워크 조회·전략 활성화·Paper 기록·Telegram 발송을 하지 않는다.
+저장 한도(스냅샷 1MB)를 넘으면 중단하며 영속 호스트와 백업의 검증은 호출자 책임이다.
+
 미국 주식 자체 모의매매와 Telegram 일일 보고를 우선하는 Python 3.11 프로젝트.
 2026-11-11 사용자 선택에 따라 Astral 문의 회신을 기다리지 않고 독립 실행 경로를 개발한다.
 현재는 **검증된 보고 계층의 첫 구현**이며, 자동매매 MVP는 아직 완료되지 않았다.
