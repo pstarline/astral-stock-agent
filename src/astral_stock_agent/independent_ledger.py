@@ -265,3 +265,39 @@ class IndependentPaperLedger:
         except (OSError, KeyError, TypeError, ValueError, DecimalException,
                 json.JSONDecodeError, DeliveryError):
             raise IndependentLedgerError('Paper ledger append blocked; reconciliation required') from None
+
+    def report_for_latest_session(self, *, now):
+        """Read the exact stored body and a stable run/session Outbox key.
+
+        Validate the latest completed checkpoint, scope and immediate previous
+        link before returning private content. Does not recompute, overwrite,
+        enqueue or deliver. The digest is a consistency check, not a signature.
+        """
+        try:
+            day = latest_closed_session(now).day
+            accounting, body, _ = self._load_checkpoint(day.isoformat())
+            _validate_accounting(accounting, now=now)
+            scope_record = json.loads(self._read(self._path('scope')), object_pairs_hook=_unique)
+            scope = _scope(accounting)
+            first = date.fromisoformat(scope_record['first_session'])
+            if (scope_record != dict(version=1, scope=scope, first_session=first.isoformat())
+                    or first > day):
+                raise ValueError
+            envelope = json.loads(self._read(self._path('session:'+day.isoformat())),
+                                  object_pairs_hook=_unique)
+            if envelope['accounting'] != accounting or envelope['report_body'] != body:
+                raise ValueError
+            if first == day:
+                if envelope['previous_checkpoint_sha256'] is not None:
+                    raise ValueError
+            else:
+                previous_day = latest_closed_session(latest_closed_session(now).opens_at).day
+                previous, _, previous_hash = self._load_checkpoint(previous_day.isoformat())
+                if (_scope(previous) != scope
+                        or envelope['previous_checkpoint_sha256'] != previous_hash):
+                    raise ValueError
+            key = hashlib.sha256(_canonical([
+                'independent_paper_report_v1', scope_record, day.isoformat()])).hexdigest()
+            return key, body
+        except Exception:
+            raise IndependentLedgerError('stored Paper report unavailable or inconsistent') from None

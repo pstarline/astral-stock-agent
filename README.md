@@ -1,5 +1,12 @@
 # Astral Stock Agent
 
+`paper_outbox.enqueue_latest_paper_report(paper_directory=..., database=..., now=...)`는
+최신 폐장 거래일의 Paper 원장 보고를 검증해 기존 비공개 Outbox로 인계한다. 원장과 Outbox는
+각각 별도 `0700` 디렉터리를 사용하며 큐는 사전에 명시적으로 초기화돼 있어야 한다.
+원장의 동일 본문만 전달하고 원장 자체를 수정하지 않는다. 동일 날짜의 변경 본문은 충돌로
+중단하며 재시작/동시 인계는 중복 행을 만들지 않는다. 기존 큐 상태를 바꾸거나 전송하지 않는다.
+결과의 pending/sending/unknown은 운영자 확인을 요구하며 수신 증명이 아니다.
+
 `paper_pipeline.record_archived_sma`는 검증된 일봉 입력과 별도 가격/Paper 디렉터리를 받아
 시세 누적→고정 SMA 후보 신호→원장 기록을 수행한다. 설정은 기존 Alpha SMA 설정과 같은
 필드에 `schema='archived_sma_record_v1'`을 사용한다. `rule.trade_from`은 bootstrap 거래일과
