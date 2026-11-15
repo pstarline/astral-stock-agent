@@ -237,10 +237,13 @@ class Outbox:
         """
         validate_telegram_text(body)
         with self._connect() as db:
-            db.execute("INSERT OR IGNORE INTO reports VALUES (?, ?, 'pending', NULL)", (key, body))
+            inserted = db.execute("INSERT OR IGNORE INTO reports VALUES (?, ?, 'pending', NULL)", (key, body)).rowcount == 1
             stored = db.execute("SELECT body FROM reports WHERE report_key=?", (key,)).fetchone()
             if stored is None or stored[0] != body:
                 raise DeliveryError("report content conflict; operator reconciliation required")
+        # Return only after commit. Used to distinguish a new report from a
+        # pending row left by a previous invocation; never grants retry rights.
+        return inserted
 
     def state(self, key):
         with self._connect() as db:

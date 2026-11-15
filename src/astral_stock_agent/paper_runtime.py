@@ -1,4 +1,4 @@
-"""Single private collection/record/queue invocation, with no message sending."""
+"""Single private Paper invocation; report delivery requires explicit opt-in."""
 from datetime import datetime, timezone, timedelta
 import os
 from pathlib import Path
@@ -7,7 +7,7 @@ from .delivery import Outbox
 from .independent_ledger import IndependentPaperLedger, _canonical
 from .market_data import fetch_alpha_daily, _scope
 from .paper_pipeline import record_archived_sma, validate_record_config
-from .paper_outbox import enqueue_latest_paper_report
+from .paper_outbox import enqueue_latest_paper_report, report_latest_paper_once
 from .price_archive import PriceArchive
 from .sessions import latest_closed_session
 
@@ -17,16 +17,22 @@ class PaperRuntimeError(ValueError):
 
 
 def run_market_paper(config, *, price_directory, paper_directory, database,
-                     verified_us_symbols, api_key, bootstrap=False, clock=None):
+                     verified_us_symbols, api_key, bootstrap=False, clock=None,
+                     sender=None, delivery_authorized=False):
     """Use caller-authorized configuration/key/storage for one candidate run.
 
     Validate static configuration and initialized private stores before the
     single official daily request. A completed same-session checkpoint skips
     collection/recalculation and safely repeats only its immutable queue handoff.
     Missing prior state fails closed. No secrets or prices are returned/logged.
+    Delivery defaults off. An already-authorized caller must supply both a
+    sender and delivery_authorized=True; only a newly inserted report is sent.
+    This does not validate/approve a strategy or acquire operational authority.
     """
     try:
-        if os.getenv('GITHUB_ACTIONS'):
+        if (os.getenv('GITHUB_ACTIONS') or type(delivery_authorized) is not bool
+                or (delivery_authorized and not callable(getattr(sender, 'send', None)))
+                or (not delivery_authorized and sender is not None)):
             raise ValueError
         clock = clock or (lambda:datetime.now(timezone.utc))
         started = clock()
@@ -72,8 +78,12 @@ def run_market_paper(config, *, price_directory, paper_directory, database,
             if latest_closed_session(finished).day != session.day or finished < started:
                 raise ValueError
             collected = False
-        queued = enqueue_latest_paper_report(paper_directory=roots[1],database=database,now=finished)
+        if delivery_authorized:
+            queued = report_latest_paper_once(paper_directory=roots[1], database=database,
+                now=finished, sender=sender, delivery_authorized=True)
+        else:
+            queued = enqueue_latest_paper_report(paper_directory=roots[1],database=database,now=finished)
         return dict(session=session.day.isoformat(), collection_performed=collected,
-                    candidate_only=True, **queued)
+                    candidate_only=True, recipient_receipt_verified=False, **queued)
     except Exception:
         raise PaperRuntimeError('private Paper run blocked; reconcile configuration/data/state') from None
