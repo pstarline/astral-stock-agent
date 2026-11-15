@@ -51,6 +51,33 @@ def main(argv=None):
 
 def _main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == 'run-paper':
+        parser = _PrivateArgumentParser(description='Collect, record and queue a private Paper candidate; never sends')
+        parser.add_argument('configuration', type=Path)
+        parser.add_argument('--price-directory', type=Path, required=True)
+        parser.add_argument('--paper-directory', type=Path, required=True)
+        parser.add_argument('--database', type=Path, required=True)
+        parser.add_argument('--us-symbol', action='append', required=True)
+        parser.add_argument('--bootstrap', action='store_true')
+        args = parser.parse_args(argv[1:])
+        try:
+            if os.getenv('GITHUB_ACTIONS'):
+                raise ValueError
+            from .paper_runtime import run_market_paper
+            with args.configuration.open('rb') as stream:
+                raw = stream.read(1_000_001)
+            if len(raw) > 1_000_000:
+                raise ValueError
+            config = json.loads(raw, object_pairs_hook=_unique_json_object)
+            result = run_market_paper(config,price_directory=args.price_directory,
+                paper_directory=args.paper_directory,database=args.database,
+                verified_us_symbols=args.us_symbol,api_key=os.getenv('ALPHAVANTAGE_API_KEY'),
+                bootstrap=args.bootstrap)
+            print(json.dumps(result,sort_keys=True))
+            return 0
+        except (OSError,ValueError,TypeError,KeyError,AttributeError,OverflowError):
+            print('Paper run blocked: private configuration/data/state unverified')
+            return 2
     if argv and argv[0] == "preview-market-sma":
         parser = _PrivateArgumentParser(description="Collect official compact daily data and preview a research candidate; never records or sends")
         parser.add_argument("configuration", type=Path)

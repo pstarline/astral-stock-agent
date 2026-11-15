@@ -16,6 +16,8 @@ COMMANDS = [
     ['init-outbox', '--database', 'private.sqlite'],
     ['audit-research', 'manifest.json', 'prices.csv', '--us-symbol', 'SPY'],
     ['check-telegram'],
+    ['run-paper', 'candidate.json', '--price-directory', 'prices', '--paper-directory',
+     'paper', '--database', 'queue/reports.sqlite', '--us-symbol', 'IBM'],
     ['preview-simulation', 'manifest.json', 'prices.csv', '--us-symbol', 'SPY'],
     ['preview-sma', 'candidate.json', 'prices.csv', '--us-symbol', 'SPY'],
     ['preview-market-sma', 'candidate.json', '--us-symbol', 'IBM'],
@@ -67,7 +69,8 @@ def test_missing_required_arguments_are_safe_status_two(monkeypatch, capsys, arg
 
 @pytest.mark.parametrize('command', [[], ['inspect-outbox'], ['init-outbox'],
                                      ['audit-research'], ['check-telegram'], ['preview-simulation'],
-                                     ['preview-sma'], ['preview-market-sma'], ['record-simulation']])
+                                     ['preview-sma'], ['preview-market-sma'], ['record-simulation'],
+                                     ['run-paper']])
 def test_help_still_works_without_runtime_access(monkeypatch, capsys, command):
     with no_operational_access(monkeypatch):
         with pytest.raises(SystemExit) as result:

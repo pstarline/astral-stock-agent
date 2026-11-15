@@ -1,5 +1,20 @@
 # Astral Stock Agent
 
+비공개 환경에서 수집부터 기록·보고 인계까지 한 번 실행하는 명령:
+
+```bash
+python -m astral_stock_agent.cli run-paper private-candidate.json \
+  --price-directory /private/prices --paper-directory /private/paper \
+  --database /private/outbox/reports.sqlite --us-symbol IBM --bootstrap
+```
+
+설정은 `archived_sma_record_v1`이며 모든 규칙/가상 현금/비용을 명시한다. 첫 거래일만
+`--bootstrap`을 사용한다. 세 디렉터리는 별도의 `0700` 경로이며 Outbox는 사전 초기화가
+필요하다. 승인된 무료 시세 키는 비공개 환경의 `ALPHAVANTAGE_API_KEY`로만 공급한다.
+키를 채팅·명령줄·Public 파일에 넣지 않는다. 같은 거래일을 반복하면 저장 원장을 대조해
+시세 재조회 없이 인계한다. 출력의 pending은 보고가 큐에 있다는 뜻이며 전송 성공이 아니다.
+이 명령은 Telegram 발송/정기 실행/인증 등록/운영 전략 채택을 하지 않는다.
+
 `paper_outbox.enqueue_latest_paper_report(paper_directory=..., database=..., now=...)`는
 최신 폐장 거래일의 Paper 원장 보고를 검증해 기존 비공개 Outbox로 인계한다. 원장과 Outbox는
 각각 별도 `0700` 디렉터리를 사용하며 큐는 사전에 명시적으로 초기화돼 있어야 한다.
