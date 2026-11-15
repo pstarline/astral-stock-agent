@@ -22,7 +22,7 @@ SPEC_FIELDS = (MANIFEST_FIELDS - {'strategy', 'version', 'close_signals'}) | {'r
 RULE_FIELDS = {'id', 'window', 'units', 'trade_from'}
 
 
-def preview_independent_sma(spec, prices, *, verified_us_symbols, now):
+def preview_independent_sma(spec, prices, *, verified_us_symbols, now, allow_pending_only=False):
     """Return validated generated manifest, accounting and a candidate preview.
 
     Reuse the existing trailing-close SMA generator, including equality=flat,
@@ -57,7 +57,8 @@ def preview_independent_sma(spec, prices, *, verified_us_symbols, now):
     require_daily_session_coverage(history, first_day=first, last_day=last,
                                    now=now, label_convention=convention)
     decisions = sma_close_decisions(history, window=rule['window'], units=rule['units'],
-                                   trade_from=trade_from, label_convention=convention)
+                                   trade_from=trade_from, label_convention=convention,
+                                   allow_pending_only=allow_pending_only)
     units = _decimal(rule['units'])
     version_spec = dict(id=SMA_RULE, window=rule['window'], units=str(units),
                         trade_from=trade_from.isoformat(), label_convention=convention,

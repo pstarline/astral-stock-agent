@@ -43,16 +43,21 @@ class TrendComparison:
     execution_conditions: ExecutionParity | None = None
 
 
-def sma_close_decisions(history, *, window, units, trade_from, label_convention):
+def sma_close_decisions(history, *, window, units, trade_from, label_convention,
+                        allow_pending_only=False):
     """After close: hold fixed units iff close > trailing SMA (including today).
 
     Warmup uses preceding observed closes, never future closes. Equality is
     flat. The same-unit reference starts at the first eligible close and holds.
     A trade_from boundary prevents pre-evaluation entries while retaining prior
     warmup observations. This generator alone does not certify market data.
+    allow_pending_only permits a flat forward bootstrap with its first signal
+    at the terminal close. Research comparisons keep the default requirement
+    for an eligible signal with a following execution session.
     """
-    if (not isinstance(history, DailyHistory) or type(window) is not int
-            or not 2 <= window <= 252 or len(history.bars) < window + 1):
+    if (type(allow_pending_only) is not bool or not isinstance(history, DailyHistory)
+            or type(window) is not int or not 2 <= window <= 252
+            or len(history.bars) < window + (0 if allow_pending_only else 1)):
         raise ResearchDataError('valid research window and sufficient history required')
     size = _decimal(units)
     if size <= 0 or type(trade_from) is not date:
@@ -82,7 +87,7 @@ def sma_close_decisions(history, *, window, units, trade_from, label_convention)
             changes.append(target - held)
             held = target  # prior decision is modeled as executed before next close
             reference.append(size if eligible and first == index else Decimal(0))
-    if first is None or first == len(closes) - 1:
+    if first is None or (first == len(closes) - 1 and not allow_pending_only):
         raise ResearchDataError('no eligible close with a next session open')
     return CloseDecisions(tuple(changes), tuple(reference), first)
 
