@@ -1,5 +1,13 @@
 # Astral Stock Agent
 
+`paper_pipeline.record_archived_sma`는 검증된 일봉 입력과 별도 가격/Paper 디렉터리를 받아
+시세 누적→고정 SMA 후보 신호→원장 기록을 수행한다. 설정은 기존 Alpha SMA 설정과 같은
+필드에 `schema='archived_sma_record_v1'`을 사용한다. `rule.trade_from`은 bootstrap 거래일과
+같아야 한다. 첫 날은 가상 현금만 기록하고 첫 신호를 보류하며 다음 시가부터 가상 체결한다.
+명시 규칙/비용/가상 현금은 최초 저장 후 변경할 수 없다. 연구 결과나 과거 체결을 초기 잔고로
+이월하지 않는다. 가격 저장 후 계산 실패는 가격을 삭제하지 않으며 동일 입력으로 재시도한다.
+호출 결과는 생성 여부/거래일만 반환한다. 자동 운영/전략 승인/Telegram 전송은 포함하지 않는다.
+
 비공개 시세 누적은 `price_archive.PriceArchive(directory).append(data,
 verified_us_symbols=[symbol], now=now, bootstrap=True)`로 시작할 수 있다.
 `data`는 기존 `normalize_alpha_daily`/`fetch_alpha_daily`의 검증 결과이며 이후 실행은
