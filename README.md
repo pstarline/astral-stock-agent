@@ -1,5 +1,12 @@
 # Astral Stock Agent
 
+이미 승인된 비공개 운영 호출자는 Python `run_market_paper(..., sender=sender,
+delivery_authorized=True)`로 기록한 새 보고를 기존 전송기에 연결할 수 있다. 기본값과
+아래 CLI는 계속 큐 인계만 한다. 기존 pending/sending/unknown/sent 보고는 자동 발송·
+재전송하지 않는다. 삽입 후 중단·전송 불명확은 `inspect-outbox`로 점검하고 운영자가 대조한다.
+이 옵션은 전략 검증/운영 승인이나 실제 수신 확인을 대체하지 않으며 토큰/호스트를 설정하지 않는다.
+
+
 비공개 환경에서 수집부터 기록·보고 인계까지 한 번 실행하는 명령:
 
 ```bash

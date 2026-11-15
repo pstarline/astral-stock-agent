@@ -1,5 +1,35 @@
 # 개발 상태 — 2026-11-15 (한국 시간)
 
+
+## 최신 실행 — 자체 Paper 신규 보고의 승인 전송기 연결 (2026-11-15 KST)
+
+- Public main817cf23d6a97cb335f82f1827f4cb91f332c21fa, 열린 PR0개,
+  main CI43692293933 success와 PR #46 반영을 확인했다. AGENTS/상태/이슈17을 읽고
+  feat/private-paper-delivery를 같은 head에서 선점했다. 보호 비활성/rulesets 없음도 확인했다.
+- 기존 run_market_paper에 이미 승인된 비공개 sender와 delivery_authorized=True를
+  함께 전달하는 경로를 추가했다. 기본값과 run-paper CLI는 계속 큐 저장만 한다.
+  이 플래그 자체는 전략 검증/운영 승인·인증 권한을 부여하지 않으며 새 토큰을 획득하지 않는다.
+- Outbox.enqueue가 삽입 commit 후 생성 여부를 반환한다. 이번 호출이 삽입한 동일 보고만
+  기존 deliver의 원자적 sending 선점 후 1회 시도한다. 동시 삽입자 중 하나만 시도하며
+  기존 pending/sending/unknown/sent는 자동 발송/재전송하지 않는다. 본문 충돌은 중단한다.
+- 삽입 직후 중단은 pending, 전송 타임아웃은 unknown으로 남겨 운영자 대조가 필요하다.
+  전송 오류는 Paper 원장을 바꾸지 않으며 재시작은 기록된 원문을 대조한다. 결과의
+  recipient_receipt_verified는 false로 API 수락을 실제 사람의 수신 확인으로 처리하지 않는다.
+- 합성15개 추가로 최초 동일 본문/독립 연결에서 sending commit 확인, 재시작/다음 날,
+  동시 실행1회, 네 상태 보존, 타임아웃/삽입 후 중단, 승인 누락/잘못된 값/공개CI·충돌을 확인했다.
+  관련46개 및 Python3.11.18 전체1228 passed/기존 pandas 경고4개, compileall/공백 검사 통과.
+  오류·회계 불변/동시성·중복/권한·정보노출 관점 자체 리뷰 완료, 별도 외부 에이전트 리뷰는 미수행이다.
+  원격 최종 head CI와 민감정보/충돌/보호규칙을 확인한 저위험 PR만 병합한다.
+- AGENTS/ARCHITECTURE 역할 표/README를 함께 동기화했다. MVP/전체는 미완료다.
+  다음은 검증·승인된 후보/무료 시세 키와 비공개 영속 호스트를 연결하고 실제 일일 기록·
+  Telegram 수신을 검증하는 일이다. Render 비용 문의는 결제/활성화 승인으로 해석하지 않았다.
+  호스트/개인 키·전송기 연결은 아직 미검증이며 기존 GitHub Secret을 추출/이전하지 않았다.
+- 이번 실제 시세/Telegram 발송/주문/배포/새 인증/결제/예약 변경0회, auto-stock 변경없음.
+  Astral 조회 daily_backtest_limit usage0만 확인했으며 limit=-1의 remaining을 잔여 횟수로
+  해석하지 않는다. Work/GitHub 잔여량·High 고정은 미확인이다. 매시간 개발/MVP 이후
+  주1회 공개 탐색 순서를 유지하며 탐색 미활성. 코드 추가 승인 요청없음, 유료 운영은 별도 승인이다.
+- 재개 후 이전3.11 가상환경 경로가 사라져 별도 로컬3.11 환경을 구성하고 검증했다.
+
 ## 최신 실행 — 비공개 단일 Paper 수집·기록·큐 실행 명령 (2026-11-15 KST)
 
 - Public main8ab18032b05dfd35a57d079b97f4be885180542f, 열린 PR0개와
