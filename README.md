@@ -1,5 +1,9 @@
 # Astral Stock Agent
 
+사용자 2026-11-15 선택에 따라 자체 엔진과 Render를 운영 경로로 사용한다. Astral 구독은
+필수 런타임 의존성이 아니다. [Render 초기 설정과 복구](docs/RENDER.md), 루트 render.yaml을
+참고한다. Worker/후보 승인/보고는 기본 비활성이고 실제 배포·일일 수신은 아직 미검증이다.
+
 이미 승인된 비공개 운영 호출자는 Python `run_market_paper(..., sender=sender,
 delivery_authorized=True)`로 기록한 새 보고를 기존 전송기에 연결할 수 있다. 기본값과
 아래 CLI는 계속 큐 인계만 한다. 기존 pending/sending/unknown/sent 보고는 자동 발송·
