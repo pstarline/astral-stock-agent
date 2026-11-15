@@ -20,6 +20,28 @@ class PaperPipelineError(ValueError):
     pass
 
 
+def validate_record_config(config, *, symbol, now, bootstrap):
+    """Check explicit candidate parameters before any market request or write."""
+    try:
+        if (type(bootstrap) is not bool or type(config) is not dict
+                or set(config) != CONFIG_FIELDS or config['schema'] != 'archived_sma_record_v1'
+                or config['symbol'] != symbol):
+            raise ValueError
+        rule = config['rule']
+        if (type(rule) is not dict or set(rule) != RULE_FIELDS or rule['id'] != SMA_RULE
+                or type(rule['window']) is not int or not 2 <= rule['window'] <= 252
+                or _decimal(rule['units']) <= 0 or _decimal(config['initial_cash']) <= 0
+                or not 0 <= _decimal(config['commission_bps']) < 10000
+                or not 0 <= _decimal(config['slippage_bps']) < 10000):
+            raise ValueError
+        trade_from = date.fromisoformat(rule['trade_from'])
+        if (trade_from.isoformat() != rule['trade_from']
+                or (bootstrap and trade_from != latest_closed_session(now).day)):
+            raise ValueError
+    except Exception:
+        raise PaperPipelineError('explicit private Paper configuration required') from None
+
+
 def record_archived_sma(config, data, *, price_directory, paper_directory,
                         verified_us_symbols, now, bootstrap=False):
     """Record a candidate run with a flat, latest-session bootstrap baseline.
@@ -32,22 +54,7 @@ def record_archived_sma(config, data, *, price_directory, paper_directory,
     try:
         if os.getenv('GITHUB_ACTIONS') or type(bootstrap) is not bool:
             raise ValueError
-        if (type(config) is not dict or set(config) != CONFIG_FIELDS
-                or config['schema'] != 'archived_sma_record_v1'
-                or config['symbol'] != data.symbol):
-            raise ValueError
-        rule = config['rule']
-        if (type(rule) is not dict or set(rule) != RULE_FIELDS or rule['id'] != SMA_RULE
-                or type(rule['window']) is not int or not 2 <= rule['window'] <= 252
-                or _decimal(rule['units']) <= 0 or _decimal(config['initial_cash']) <= 0
-                or not 0 <= _decimal(config['commission_bps']) < 10000
-                or not 0 <= _decimal(config['slippage_bps']) < 10000):
-            raise ValueError
-        trade_from = date.fromisoformat(rule['trade_from'])
-        if trade_from.isoformat() != rule['trade_from']:
-            raise ValueError
-        if bootstrap and trade_from != latest_closed_session(now).day:
-            raise ValueError
+        validate_record_config(config, symbol=data.symbol, now=now, bootstrap=bootstrap)
         prices_path, paper_path = Path(price_directory).absolute(), Path(paper_directory).absolute()
         if prices_path == paper_path or os.path.samefile(prices_path, paper_path):
             raise ValueError
