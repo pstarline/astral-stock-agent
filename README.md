@@ -1,8 +1,10 @@
 # Astral Stock Agent
 
-사용자 2026-11-15 선택에 따라 자체 엔진과 Render를 운영 경로로 사용한다. Astral 구독은
-필수 런타임 의존성이 아니다. [Render 초기 설정과 복구](docs/RENDER.md), 루트 render.yaml을
-참고한다. Worker/후보 승인/보고는 기본 비활성이고 실제 배포·일일 수신은 아직 미검증이다.
+사용자 최신 선택에 따라 **자체 엔진과 네이버 클라우드**로 운영을 준비한다.
+[모바일 서버 설정·설치·복구](docs/NCLOUD.md)를 따른다. 새 빈 저장소만 명시 초기화하며
+Worker/후보 승인/보고는 기본 비활성이다. 실제 서버·Docker·영속 운영·일일 수신은 미검증이다.
+[이전 Render 설정](docs/RENDER.md)은 참고용으로 보존하며 동시에 활성화하지 않는다.
+Astral 구독/문의 회신은 자체 엔진의 필수 조건이 아니다.
 
 이미 승인된 비공개 운영 호출자는 Python `run_market_paper(..., sender=sender,
 delivery_authorized=True)`로 기록한 새 보고를 기존 전송기에 연결할 수 있다. 기본값과

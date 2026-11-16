@@ -9,3 +9,5 @@ build/
 dist/
 *.sqlite*
 private/
+.venv-*/
+paper.env
