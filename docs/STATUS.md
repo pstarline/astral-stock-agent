@@ -1,4 +1,33 @@
-# 개발 상태 — 2026-11-15 (한국 시간)
+# 개발 상태 — 2026-11-16 (한국 시간)
+
+## 최신 실행 — 네이버 클라우드 비공개 호스트 초기 설치 경로 (2026-11-16)
+
+- 사용자가 Render 해외 결제 문제 후 네이버 클라우드를 선택했다. 모바일 서버 설정을
+  지원하며 Astral 회신/구독은 기다리지 않는다. Public main1f910ad, 열린 PR0,
+  main CI43701185793 success/이슈17/AGENTS/상태를 확인해 feat/ncloud-private-host를 선점했다.
+- 기존 Worker/시세/원장/Outbox는 재작성하지 않았다. host_storage.initialize-empty는
+  명시 빈0700 디렉터리에서 배타적 불변 마커를 먼저 fsync한 뒤 분리 디렉터리/Outbox를
+  초기화한다. 기존/부분/동시 실패는 자동 복구·덮어쓰기 없이 차단한다. Worker가 호출하지 않는다.
+- inspect는 네트워크 없이 권한/완료 마커/control/Outbox를 읽고 상태 개수와 대조 필요
+  여부만 반환한다. 전체 회계/원본 가격 진위/호스트 영속성/Telegram 수신 증명이 아니다.
+- 네이버 Ubuntu용 좁은 Docker build context·Python3.11/UID10001/read-only rootfs·bind
+  저장소와 root0600 env-file, systemd 단일 Worker를 준비했다. prepare.sh는 기존 경로/
+  이미지/UID 충돌을 거부하고 설치만 한다. 자동 start/enable/pull/재시도/포트 공개는 없다.
+- docs/NCLOUD.md에 모바일 생성/SSH/첫 설치/개인 키 입력/초기화·복구/수신 대조를 안내하고
+  AGENTS/ARCHITECTURE 역할 표/README를 동기화했다. 이전 Render는 참고용이며 동시 운영 금지다.
+- 합성15개로 단일/동시 초기화, 부분 실패·기존/링크/권한·공개CI 차단, 읽기 전용 검사,
+  pending/sending/unknown/sent 불변, Worker 미완료 시도 차단, CLI 민감 인자 비노출을 확인했다.
+  관련 Worker 포함34개 및 Python3.11.18 전체1262개 통과/기존 pandas 경고4개.
+  compileall/bash 구문/공백 검사 통과. 초기화 경쟁·복구·권한·정보노출 관점 자체 리뷰 완료,
+  외부 독립 에이전트 리뷰는 미수행이다. 최종 원격 CI·보호규칙·민감정보 검사 후에만 병합한다.
+- 현재 환경에 Docker 실행기/서비스가 없어 systemd verify의 외부 의존성 검증과 실제 이미지 빌드/기동/서버 UID·메모리/재부팅 영속성은
+  미검증이다. 서버 생성/결제/키 이전/실제 시세·Paper forward/Telegram 일일 전송은 수행하지 않았다.
+- MVP/전체 미완료. 다음은 사용자 모바일 네이버 서버 생성과 안전한 SSH 접속 확인,
+  검토한 배포 커밋 설치/스토리지·비공개 키·승인 후보 점검 및 실제 일일 수신 검증이다.
+  공개 탐색은 MVP 이후 주1회 미활성, 이후 공통 검증→조건부 전략 선택 순서다.
+  개발 예약 매시간 유지, 변경0회. Work/GitHub 잔여량·모델/High 고정은 미확인이다.
+  기존 auto-stock 변경없음. 운영 인증정보/가격 원본은 Public으로 내보내지 않았다.
+
 
 ## 최신 실행 — 자체 엔진·Render Worker 운영 경로 준비 (2026-11-15 KST)
 

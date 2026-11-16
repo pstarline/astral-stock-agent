@@ -1,0 +1,21 @@
+[Unit]
+Description=Private independent US-stock Paper worker
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/astral-paper/paper.env
+
+[Service]
+Type=simple
+UMask=0077
+# Never pull a new image or recreate a missing host directory at startup.
+# No ports, Docker socket, privileged mode or external restart policy.
+ExecStart=/usr/bin/docker run --rm --pull=never --name astral-paper --read-only --cap-drop=ALL --security-opt=no-new-privileges:true --user=10001:10001 --tmpfs=/tmp:rw,noexec,nosuid,size=32m --log-driver=none --env-file=/etc/astral-paper/paper.env --mount=type=bind,src=/var/lib/astral,dst=/var/lib/astral astral-paper:reviewed
+ExecStop=/usr/bin/docker stop --time=25 astral-paper
+TimeoutStopSec=40
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
