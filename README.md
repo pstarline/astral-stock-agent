@@ -3,7 +3,8 @@
 사용자 최신 선택에 따라 **자체 엔진과 네이버 클라우드**로 운영을 준비한다.
 [모바일 서버 설정·설치·복구](docs/NCLOUD.md)를 따른다. 새 빈 저장소만 명시 초기화하며
 Worker/후보 승인/보고는 기본 비활성이다. 서버 설치·고정 Telegram 점검 수신은 사용자
-출력으로 확인했으며 실제 forward 영속 운영·일일 수신·재부팅 복구는 미검증이다.
+출력으로 확인했다. 2026-11-21 사용자가 첫 현금 기준선 일일 보고 수신을 확인했다.
+다음 거래일 가상 체결·지속 운영·재부팅 복구는 미검증이다.
 [이전 Render 설정](docs/RENDER.md)은 참고용으로 보존하며 동시에 활성화하지 않는다.
 Astral 구독/문의 회신은 자체 엔진의 필수 조건이 아니다.
 
@@ -677,3 +678,16 @@ order의 `sizing_type=fixed_shares`와 `sizing_value`다. 수량을 생략하면
 [프로젝트 상태](docs/STATUS.md), [아키텍처](docs/ARCHITECTURE.md),
 [개발 지침](AGENTS.md)을 먼저 읽는다. 실거래는 별도 승인 단계다.
 
+
+
+## 공개 전략 탐색 모듈 (자동화 미활성)
+
+public_discovery.run_public_discovery(call_tool, directory=private_directory,
+verified_us_symbols=verified_scope, query=explicit_query)는 기본 disabled다.
+MVP 확인 후 호출자가 enabled=True, mvp_verified=True를 명시할 때만 공식 Explore 검색·조회로
+최대5개의 후보를 조사한다. 별도 서버/AI/스케줄 등록은 없다. Paper 운영 디렉터리와 분리된
+기존0700 디렉터리가 필요하며 생성/복구를 자동 수행하지 않는다. 7일 제한·동시 선점·실패 보존·
+신규/관측 중요 변경의 비공개 인계와 read_public_candidates의 재시작 인계를 제공한다.
+누락 지표와 미확인 버전·규칙 설명은 None이다. 보고 성과는 검증되지 않았으며 장중 전략을
+일봉으로 바꾸거나 원본 소스를 실행/저장하지 않는다. 주문·복사·배포·운영 전략 교체 권한이 없다.
+[역할과 실제 연결 경계](docs/ARCHITECTURE.md)를 따른다.
