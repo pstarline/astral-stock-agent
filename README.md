@@ -127,6 +127,33 @@ python -m astral_stock_agent.cli record-simulation private-manifest.json private
 비공개 운영 및 실제 Telegram 일일 수신은 다음 작업이다. 고객센터 답변은 Astral 경로
 재검토에 사용하되 자체 모의매매 MVP의 필수 조건으로 두지 않는다.
 
+## 별도 일봉 반전 후보 미리보기
+
+```bash
+python -m astral_stock_agent.cli preview-daily-reversal /private/candidate.json /private/daily.csv --us-symbol SPY
+```
+
+로컬 비공개 파일을 사용하는 과거 연구 명령이며 저장/전송/시세 조회/운영 활성화는 없다.
+`schema=independent_daily_reversal_v1`을 사용하고 가격 해시/행수/전체 기간/라벨/종목/
+가상 현금/비용은 기존 독립 미리보기와 같다. `rule`에는 `id=daily_close_reversal_fixed_units_v1`,
+`ema_period`, `rsi_period`, `atr_period`, `atr_mean_period`(각2~252), 양수 `units`,
+정규 ISO 날짜 `trade_from`, `entry_rsi`, `exit_rsi`(0≤entry<exit≤100),
+`stop_loss_fraction`, `take_profit_fraction`(각0초과1미만), `max_holding_sessions`(1~252)를
+모두 명시한다. 기본값/매개변수 탐색/운영 한도 결정은 없으며 예제 운영 설정을 만들지 않는다.
+
+별도 연구 가설은 RSI<entry, 종가<EMA, ATR>ATR 평균일 때 정해진 수량만 진입한다.
+보유 중에는 종가 손실/이익 기준, 최대 보유 세션, RSI>exit에 따라 청산 신호를 만든다.
+필수 지표가 미정의면 신규 진입하지 않고 보유 시 청산 신호를 낸다. 손익 기준은 매수 시가와
+매수 슬리피지로 정하며 수수료는 회계에 별도 반영한다. 청산 체결일에는 재진입하지 않는다.
+진입/청산 모두 다음 시가에 가상 체결하므로 갭이 손실 기준을 초과할 수 있다. 장중 고저가
+접촉을 손절/익절 체결로 만들지 않으며 실제 보호 주문은 없다. 마지막 신호는 미실행이다.
+
+원본15분봉 전략의 일봉 재현이 아니며 연구 입력/결과를 운영 성과로 표시하지 않는다.
+생성 manifest는 기존 가상 회계로 재계산할 수 있다. Python 함수는 manifest/회계/최종
+보고 본문과 해시를 반환하며, 기존 비공개 원장에 합성2세션 인계/재시작을 검증했다.
+실제 시세 성과/forward 기록/전략 승인·운영은 미완료다. SMA 전용 Worker/run-paper에 이
+설정을 넣거나 후보 승인 플래그를 켜지 않는다. 원장 연결은 별도 작업이다.
+
 ## 시세에서 자체 SMA 후보 신호 생성
 
 ```bash

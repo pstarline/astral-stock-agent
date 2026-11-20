@@ -133,7 +133,7 @@ def _main(argv=None):
                 OverflowError, DeliveryError):
             print("Simulation record blocked: private ledger or complete closed-session evidence required")
             return 2
-    if argv and argv[0] in ("preview-simulation", "preview-sma"):
+    if argv and argv[0] in ("preview-simulation", "preview-sma", "preview-daily-reversal"):
         parser = _PrivateArgumentParser(
             description="Preview independent price-only signals/accounting; never sends")
         parser.add_argument("manifest", type=Path)
@@ -156,6 +156,10 @@ def _main(argv=None):
             if argv[0] == "preview-sma":
                 from .independent_signals import preview_independent_sma
                 _, _, body = preview_independent_sma(manifest, prices,
+                    verified_us_symbols=args.us_symbol, now=datetime.now(timezone.utc))
+            elif argv[0] == "preview-daily-reversal":
+                from .independent_reversal import preview_independent_reversal
+                _, _, body = preview_independent_reversal(manifest, prices,
                     verified_us_symbols=args.us_symbol, now=datetime.now(timezone.utc))
             else:
                 _, body = preview_independent_paper(manifest, prices,
