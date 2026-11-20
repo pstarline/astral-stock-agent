@@ -2,7 +2,8 @@
 
 사용자 최신 선택에 따라 **자체 엔진과 네이버 클라우드**로 운영을 준비한다.
 [모바일 서버 설정·설치·복구](docs/NCLOUD.md)를 따른다. 새 빈 저장소만 명시 초기화하며
-Worker/후보 승인/보고는 기본 비활성이다. 실제 서버·Docker·영속 운영·일일 수신은 미검증이다.
+Worker/후보 승인/보고는 기본 비활성이다. 서버 설치·고정 Telegram 점검 수신은 사용자
+출력으로 확인했으며 실제 forward 영속 운영·일일 수신·재부팅 복구는 미검증이다.
 [이전 Render 설정](docs/RENDER.md)은 참고용으로 보존하며 동시에 활성화하지 않는다.
 Astral 구독/문의 회신은 자체 엔진의 필수 조건이 아니다.
 
@@ -21,7 +22,8 @@ python -m astral_stock_agent.cli run-paper private-candidate.json \
   --database /private/outbox/reports.sqlite --us-symbol IBM --bootstrap
 ```
 
-설정은 `archived_sma_record_v1`이며 모든 규칙/가상 현금/비용을 명시한다. 첫 거래일만
+설정은 `archived_sma_record_v1` 또는 `archived_reversal_record_v1`이며 모든 규칙/가상
+현금/비용을 명시한다. 스키마로 지정한 후보만 계산하며 자동 선택하지 않는다. 첫 거래일만
 `--bootstrap`을 사용한다. 세 디렉터리는 별도의 `0700` 경로이며 Outbox는 사전 초기화가
 필요하다. 승인된 무료 시세 키는 비공개 환경의 `ALPHAVANTAGE_API_KEY`로만 공급한다.
 키를 채팅·명령줄·Public 파일에 넣지 않는다. 같은 거래일을 반복하면 저장 원장을 대조해
@@ -42,6 +44,18 @@ python -m astral_stock_agent.cli run-paper private-candidate.json \
 명시 규칙/비용/가상 현금은 최초 저장 후 변경할 수 없다. 연구 결과나 과거 체결을 초기 잔고로
 이월하지 않는다. 가격 저장 후 계산 실패는 가격을 삭제하지 않으며 동일 입력으로 재시도한다.
 호출 결과는 생성 여부/거래일만 반환한다. 자동 운영/전략 승인/Telegram 전송은 포함하지 않는다.
+
+별도 일봉 반전 후보는 `record_archived_reversal` 또는 공통 `record_archived_candidate`로
+연결한다. 최상위 필드는 `schema`, `symbol`, `initial_cash`, `commission_bps`,
+`slippage_bps`, `rule`만 허용하며 `schema=archived_reversal_record_v1`, rule은 아래
+반전 후보 미리보기와 같다. 가격 해시/기간은 검증된 누적 이력에서 생성한다. 초기
+trade_from은 실제 bootstrap 거래일이어야 한다. EMA/RSI/ATR 준비가 Compact100개로
+불가능하면 API 조회 전에 중단한다. 원본15분봉의 일봉 재현이나 운영 승인을 뜻하지 않는다.
+
+후보 설정은 가격 쓰기 전에 별도 불변 파일로 고정한다. 기존 후보 핀/체크포인트가 있거나
+핀 없이 미대조 파일이 남은 디렉터리는 새 후보 bootstrap으로 인수하지 않는다. 가격·원장·
+Outbox는 별도 저장소이며 실패 흔적을 삭제하거나 자동 rollback/초기화하지 않는다.
+동일 설정의 수동 대조만 허용하며 Worker 미완료 시도는 재시작해도 자동 재실행하지 않는다.
 
 비공개 시세 누적은 `price_archive.PriceArchive(directory).append(data,
 verified_us_symbols=[symbol], now=now, bootstrap=True)`로 시작할 수 있다.
@@ -151,8 +165,9 @@ python -m astral_stock_agent.cli preview-daily-reversal /private/candidate.json 
 원본15분봉 전략의 일봉 재현이 아니며 연구 입력/결과를 운영 성과로 표시하지 않는다.
 생성 manifest는 기존 가상 회계로 재계산할 수 있다. Python 함수는 manifest/회계/최종
 보고 본문과 해시를 반환하며, 기존 비공개 원장에 합성2세션 인계/재시작을 검증했다.
-실제 시세 성과/forward 기록/전략 승인·운영은 미완료다. SMA 전용 Worker/run-paper에 이
-설정을 넣거나 후보 승인 플래그를 켜지 않는다. 원장 연결은 별도 작업이다.
+실제 시세 성과/forward 기록/전략 승인·운영은 미완료다. 아래 preview 스키마를 운영
+설정으로 넣지 않는다. 위의 별도 archive 스키마로 연결하더라도 검증/명시 운영 승인 전
+후보 승인 플래그를 켜지 않는다. 기존 운영 후보/위험 설정을 자동 교체하지 않는다.
 
 ## 시세에서 자체 SMA 후보 신호 생성
 

@@ -4,9 +4,10 @@ import os
 from pathlib import Path
 
 from .delivery import Outbox
-from .independent_ledger import IndependentPaperLedger, _canonical
+from .independent_ledger import IndependentPaperLedger
 from .market_data import fetch_alpha_daily, _scope
-from .paper_pipeline import record_archived_sma, validate_record_config
+from .paper_pipeline import (record_archived_candidate, validate_candidate_config,
+                             required_candidate_observations, check_candidate_pin)
 from .paper_outbox import enqueue_latest_paper_report, report_latest_paper_once
 from .price_archive import PriceArchive
 from .sessions import latest_closed_session
@@ -37,8 +38,8 @@ def run_market_paper(config, *, price_directory, paper_directory, database,
         clock = clock or (lambda:datetime.now(timezone.utc))
         started = clock()
         session = latest_closed_session(started)
-        validate_record_config(config, symbol=config['symbol'], now=started, bootstrap=bootstrap)
-        if bootstrap and config['rule']['window'] > 100:
+        validate_candidate_config(config, symbol=config['symbol'], now=started, bootstrap=bootstrap)
+        if bootstrap and required_candidate_observations(config) > 100:
             raise ValueError  # a compact bootstrap cannot supply this warmup
         _scope(config['symbol'], verified_us_symbols)
         roots = [Path(price_directory).absolute(), Path(paper_directory).absolute(),
@@ -48,15 +49,7 @@ def run_market_paper(config, *, price_directory, paper_directory, database,
         PriceArchive(roots[0])
         paper = IndependentPaperLedger(roots[1])
         Outbox(database)
-        pinned_path = paper._path('archived-sma-config-v1')
-        try:
-            pinned_path.lstat()
-        except FileNotFoundError:
-            if not bootstrap:
-                raise ValueError
-        else:
-            if paper._read(pinned_path) != _canonical(config):
-                raise ValueError
+        check_candidate_pin(paper, config, bootstrap=bootstrap)
         checkpoint = paper._path('session:'+session.day.isoformat())
         try:
             checkpoint.lstat()
@@ -70,7 +63,7 @@ def run_market_paper(config, *, price_directory, paper_directory, database,
             if (not timedelta(0) <= finished-started <= timedelta(minutes=1)
                     or latest_closed_session(finished).day != session.day):
                 raise ValueError
-            record_archived_sma(config,data,price_directory=roots[0],paper_directory=roots[1],
+            record_archived_candidate(config,data,price_directory=roots[0],paper_directory=roots[1],
                 verified_us_symbols=verified_us_symbols,now=finished,bootstrap=bootstrap)
             collected = True
         else:
