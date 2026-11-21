@@ -143,6 +143,81 @@ def _metrics(raw):
         trade_count_definition=_text(stats.get('statistics_basis'), 80))
 
 
+def _definition_scope(payload, assets, timeframe):
+    """Cross-check the observed v2 universe/dataset shape, without running it.
+
+    IDs are references, not necessarily ticker symbols. Dataset names do not
+    establish bar sizes. Missing declarations stay unconfirmed; contradictory
+    symbol scopes or explicit bar sizes block the batch instead of choosing one.
+    Provider asset-class labels are not proof of an independently verified market.
+    """
+    flags = []
+    definition = payload.get('strategy') if payload is not None else None
+    if definition is None:
+        definition = {}
+    if type(definition) is not dict:
+        raise ValueError
+    universe = definition.get('universe')
+    references = None
+    if universe is not None:
+        if type(universe) is not dict:
+            raise ValueError
+        declarations = universe.get('assets')
+        if declarations is not None:
+            if type(declarations) is not list or not 1 <= len(declarations) <= 100:
+                raise ValueError
+            references = {}
+            for asset in declarations:
+                if type(asset) is not dict:
+                    raise ValueError
+                reference, symbol = asset.get('id'), asset.get('symbol')
+                if (type(reference) is not str or not reference or len(reference) > 80
+                        or _text(reference, 80) is None or reference in references
+                        or type(symbol) is not str
+                        or not re.fullmatch(r'[A-Z][A-Z0-9.\-]{0,14}', symbol)):
+                    raise ValueError
+                references[reference] = symbol
+                asset_type, currency = _text(asset.get('type'), 40), _text(asset.get('currency'), 20)
+                if asset_type is None:
+                    flags.append('definition_asset_class_unconfirmed')
+                elif asset_type != 'equity':
+                    flags.append('definition_asset_class_requires_review')
+                if currency is None:
+                    flags.append('definition_currency_unconfirmed')
+                elif currency != 'USD':
+                    flags.append('definition_currency_requires_review')
+            if set(references.values()) != set(assets):
+                raise ValueError
+    if references is None:
+        flags.append('definition_universe_unconfirmed')
+    datasets = definition.get('datasets')
+    if datasets is None:
+        flags.append('definition_datasets_unconfirmed')
+    else:
+        if type(datasets) is not list or not 1 <= len(datasets) <= 100:
+            raise ValueError
+        for dataset in datasets:
+            if type(dataset) is not dict:
+                raise ValueError
+            scope = dataset.get('assets')
+            if scope is None or references is None:
+                flags.append('dataset_asset_scope_unconfirmed')
+            elif (type(scope) is not list or not 1 <= len(scope) <= 100
+                    or any(type(ref) is not str or ref not in references for ref in scope)
+                    or len(set(scope)) != len(scope)):
+                raise ValueError
+            kind = _text(dataset.get('kind'), 40)
+            if kind != 'ohlcv':
+                flags.append('dataset_kind_requires_review')
+            else:
+                bar_size = _text(dataset.get('timeframe'), 20)
+                if bar_size is None or timeframe is None:
+                    flags.append('dataset_timeframe_unconfirmed')
+                elif bar_size != timeframe:
+                    raise ValueError
+    return sorted(set(flags))
+
+
 def _project(summary, detail, observed_at):
     public_id, slug = _identity(summary)
     if _identity(detail) != (public_id, slug) or _assets(summary) != _assets(detail):
@@ -183,6 +258,7 @@ def _project(summary, detail, observed_at):
             raise ValueError
     else:
         timing = None
+    scope_flags = _definition_scope(payload, _assets(detail), timeframe)
     raw_detail = strategy.get('performance_metrics')
     if raw_detail is not None and type(raw_detail) is not dict:
         raise ValueError
@@ -226,6 +302,7 @@ def _project(summary, detail, observed_at):
     flags = ['provider_version_unconfirmed', 'entry_exit_and_sizing_review_required',
              'cost_sensitivity_unverified', 'paper_performance_unconfirmed',
              'overfitting_and_reproducibility_review_required']
+    flags.extend(scope_flags)
     if rules_hash is None:
         flags.append('definition_unavailable')
     if period is None:
@@ -402,7 +479,7 @@ async def run_public_discovery(call_tool, *, directory, verified_us_symbols, que
                     change = 'observed_evidence_unchanged'
                     unchanged += 1
                 candidate['change_status'] = change
-                candidate['selection_reasons'] = ['independently_scoped_us_equity', change,
+                candidate['selection_reasons'] = ['independently_scoped_us_equity_metadata', change,
                                                    'independent_review_required']
                 observations.append(candidate)
                 if change in ('new_publication', 'observed_material_change'):
