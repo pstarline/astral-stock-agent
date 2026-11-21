@@ -4,6 +4,7 @@ Never invoked by the worker. Existing or partial stores require reconciliation,
 not initialization. This command has no network, strategy or delivery authority.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -74,6 +75,68 @@ def inspect(directory):
         raise HostStorageError(ERROR) from None
 
 
+MAX_FINGERPRINT_FILES = 10_000
+MAX_FINGERPRINT_BYTES = 64_000_000
+
+
+def _fingerprint_scan(root):
+    """Bounded, no-link reads; identity observations are not portable digest data."""
+    records, observations = {}, {}
+    total = 0
+    stores = [root] + [IndependentPaperLedger(root.directory / name) for name in DIRECTORIES]
+    for store in stores:
+        store._check_directory()
+        observations[str(store.directory.relative_to(root.directory))] = store._identity
+        for path in store.directory.iterdir():
+            if store is root and path.name in DIRECTORIES:
+                continue
+            if len(records) >= MAX_FINGERPRINT_FILES or len(path.name) > 250:
+                raise ValueError
+            if store.directory == root.directory / 'outbox' and path.name != 'reports.sqlite':
+                raise ValueError  # includes hot journals/WAL/SHM: do not checkpoint or repair
+            before = path.lstat()
+            if total + before.st_size > MAX_FINGERPRINT_BYTES:
+                raise ValueError
+            data = store._read(path)  # existing owner/0600/single-link/1MB bound
+            after = path.lstat()
+            identity = lambda v: (v.st_dev, v.st_ino, v.st_size, v.st_mtime_ns, v.st_ctime_ns)
+            if identity(before) != identity(after):
+                raise ValueError
+            relative = str(path.relative_to(root.directory))
+            records[relative] = (len(data), hashlib.sha256(data).hexdigest())
+            observations[relative] = identity(after)
+            total += len(data)
+        store._check_directory()
+    return records, observations, total
+
+
+def fingerprint(directory, *, worker_stopped=False):
+    """Compare an offline source/restore by portable content fingerprint.
+
+    The caller MUST stop all writers independently. This flag is an attestation,
+    not a process lock. Two equal scans detect observed changes, not arbitrary
+    concurrent writes/ABA or a crash-consistent live snapshot. No copy/restore,
+    database checkpoint, repair, deletion or delivery occurs. Matching hashes
+    prove only equality of these bounded files, not accounting or authenticity.
+    """
+    try:
+        if worker_stopped is not True:
+            raise ValueError
+        root = _root(directory)
+        before = _fingerprint_scan(root)
+        result = inspect(directory)
+        after = _fingerprint_scan(root)
+        if before != after:
+            raise ValueError
+        encoded = json.dumps(before[0], sort_keys=True, separators=(',', ':')).encode()
+        return dict(result, status='fingerprinted', schema='paper_storage_fingerprint_v1',
+                    content_sha256=hashlib.sha256(encoded).hexdigest(),
+                    files=len(before[0]), bytes=before[2],
+                    writer_exclusion_verified=False, restore_verified=False)
+    except Exception:
+        raise HostStorageError(ERROR) from None
+
+
 def main(argv=None):
     # Avoid argparse reflecting private paths/options into terminal logs.
     class Parser(argparse.ArgumentParser):
@@ -81,9 +144,15 @@ def main(argv=None):
             raise HostStorageError(ERROR)
     try:
         parser = Parser(description=__doc__)
-        parser.add_argument('action', choices=('initialize-empty', 'inspect'))
+        parser.add_argument('action', choices=('initialize-empty', 'inspect', 'fingerprint'))
         parser.add_argument('--directory', required=True)
+        parser.add_argument('--worker-stopped', action='store_true')
         args = parser.parse_args(argv)
+        if args.action == 'fingerprint':
+            print(json.dumps(fingerprint(args.directory, worker_stopped=args.worker_stopped), sort_keys=True))
+            return 0
+        if args.worker_stopped:
+            raise HostStorageError(ERROR)
         result = (initialize if args.action == 'initialize-empty' else inspect)(args.directory)
         print(json.dumps(result, sort_keys=True))
         return 0
