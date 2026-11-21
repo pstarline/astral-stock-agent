@@ -499,3 +499,98 @@ def test_scoped_definition_changes_and_untrusted_extra_fields_only_keep_digest(p
     disk = b''.join(p.read_bytes() for p in private.iterdir())
     assert b'PRIVATE_DO_NOT_STORE' not in disk and b'SYNTHETIC_FULL_SOURCE' not in disk
     assert all(name in ('astral_explore_search', 'astral_explore_get') for name, _ in wire.calls)
+
+
+@pytest.mark.parametrize('key,flag,value', [
+    ('total_return', 'total_return_fraction', 0.08),
+    ('max_drawdown', 'max_drawdown_signed_fraction', -0.08),
+    ('sharpe_ratio', 'sharpe', 2.2),
+    ('num_trades', 'num_trades', 24),
+])
+@pytest.mark.parametrize('other', ['search', 'detail'])
+def test_wrapper_metric_disagreement_preserves_every_observation(private, key, flag, value, other):
+    wire = scoped_wire()
+    summary, detail = wire.pairs[0]
+    wrapper = detail['strategy']['performance_metrics']
+    original = deepcopy(wrapper['performance_metrics'])
+    # Isolate each comparison; absent evidence must not be filled from the wrapper.
+    summary['strategy']['performance_metrics'] = original if other == 'search' else None
+    wrapper['performance_metrics'] = original if other == 'detail' else None
+    wrapper[key] = value
+    before = deepcopy(wire.pairs)
+    candidate = run(private, wire).candidates[0]
+    assert 'conflicting_reported_' + flag in candidate['review_flags']
+    observations = candidate['reported_backtest']
+    assert observations[other][flag] != observations['detail_wrapper'][flag]
+    assert observations['detail' if other == 'search' else 'search'][flag] is None
+    assert wire.pairs == before
+    assert candidate['paper_performance'] is None and not candidate['deployment_approved']
+
+
+@pytest.mark.parametrize('key', ['completed_positions', 'closed_trades', 'executed_orders',
+                                 'open_positions', 'statistics_basis'])
+@pytest.mark.parametrize('other', ['search', 'detail'])
+def test_trade_statistics_and_definition_conflicts_are_separate(private, key, other):
+    wire = scoped_wire()
+    summary, detail = wire.pairs[0]
+    wrapper = detail['strategy']['performance_metrics']
+    original = deepcopy(wrapper['performance_metrics'])
+    summary['strategy']['performance_metrics'] = original if other == 'search' else None
+    wrapper['performance_metrics'] = original if other == 'detail' else None
+    changed = 'executed_orders' if key == 'statistics_basis' else (1 if key == 'open_positions' else 0)
+    wrapper['trade_statistics'] = {key: changed}
+    candidate = run(private, wire).candidates[0]
+    flag = 'trade_count_definition' if key == 'statistics_basis' else key
+    assert 'conflicting_reported_' + flag in candidate['review_flags']
+    assert candidate['reported_backtest']['detail_wrapper']['trade_statistics'].get(
+        key) == (None if key == 'statistics_basis' else changed)
+    assert candidate['reported_backtest'][other]['trade_count_definition'] == 'completed_positions'
+    assert candidate['validation_status'] == 'needs_independent_review'
+
+
+def test_equal_wrapper_metrics_and_distinct_trade_units_are_not_conflicts(private):
+    wire = scoped_wire()
+    wrapper = wire.pairs[0][1]['strategy']['performance_metrics']
+    wrapper.update(total_return='0.0400', max_drawdown='-0.0200', sharpe_ratio='1.100',
+                   num_trades=12, trade_statistics=deepcopy(
+                       wrapper['performance_metrics']['trade_statistics']))
+    candidate = run(private, wire).candidates[0]
+    assert not any(flag.startswith('conflicting_reported_') for flag in candidate['review_flags'])
+    assert candidate['reported_backtest']['detail_wrapper']['trade_statistics']['executed_orders'] == 24
+    assert candidate['reported_backtest']['detail']['trade_statistics']['completed_positions'] == 12
+
+
+def test_new_conflict_diagnostics_do_not_reissue_identical_evidence(private, monkeypatch):
+    wire = scoped_wire()
+    wire.pairs[0][1]['strategy']['performance_metrics']['num_trades'] = 24
+    current_project = discovery._project
+    def old_diagnostics(*args):
+        candidate = current_project(*args)
+        candidate['review_flags'] = [f for f in candidate['review_flags']
+                                     if not f.startswith('conflicting_reported_')]
+        return candidate
+    with monkeypatch.context() as patch:
+        patch.setattr(discovery, '_project', old_diagnostics)
+        first = run(private, wire).candidates[0]
+    before = {p.name: p.read_bytes() for p in private.iterdir()}
+    result = run(private, wire, now=NOW + timedelta(days=7))
+    assert result.unchanged == 1 and not result.candidates
+    assert all((private / name).read_bytes() == data for name, data in before.items())
+    replay = discovery.read_public_candidates(private)[0]
+    assert replay['evidence_sha256'] == first['evidence_sha256']
+    assert 'conflicting_reported_num_trades' not in replay['review_flags']
+    # Old handoffs are immutable; no claim that they were retrospectively revalidated.
+
+
+def test_new_wrapper_conflict_is_material_evidence_and_restart_is_read_only(private):
+    wire = scoped_wire()
+    first = run(private, wire).candidates[0]
+    wire.pairs[0][1]['strategy']['performance_metrics']['num_trades'] = 24
+    second = run(private, wire, now=NOW + timedelta(days=7)).candidates[0]
+    assert second['change_status'] == 'observed_material_change'
+    assert second['evidence_sha256'] != first['evidence_sha256']
+    assert 'conflicting_reported_num_trades' in second['review_flags']
+    calls = len(wire.calls)
+    assert discovery.read_public_candidates(private)[0]['evidence_sha256'] == second['evidence_sha256']
+    assert len(wire.calls) == calls
+    assert {name for name, _ in wire.calls} == {'astral_explore_search', 'astral_explore_get'}
