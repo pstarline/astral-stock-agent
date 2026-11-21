@@ -323,9 +323,20 @@ def _project(summary, detail, observed_at):
         if count is not None and count < 30:
             flags.append(origin + '_completed_positions_below_30')
     for key in ('total_return_fraction', 'max_drawdown_signed_fraction', 'sharpe', 'num_trades'):
-        a, b = (reported[k][key] for k in ('search', 'detail'))
-        if a is not None and b is not None and a != b:
+        values = {metrics[key] for metrics in reported.values() if metrics[key] is not None}
+        if len(values) > 1:
             flags.append('conflicting_reported_' + key)
+    # Compare only like-named observations. Order legs, completed positions and
+    # closed trades are different units; missing evidence is never zero.
+    for key in ('completed_positions', 'closed_trades', 'executed_orders', 'open_positions'):
+        values = {metrics['trade_statistics'][key] for metrics in reported.values()
+                  if metrics['trade_statistics'][key] is not None}
+        if len(values) > 1:
+            flags.append('conflicting_reported_' + key)
+    definitions = {metrics['trade_count_definition'] for metrics in reported.values()
+                   if metrics['trade_count_definition'] is not None}
+    if len(definitions) > 1:
+        flags.append('conflicting_reported_trade_count_definition')
     candidate['review_flags'] = flags
     # Observation time/title/author/popularity never create a new strategy version.
     candidate['evidence_sha256'] = _material_digest(candidate)
