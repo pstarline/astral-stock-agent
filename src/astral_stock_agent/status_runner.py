@@ -3,6 +3,7 @@
 No authentication acquisition, scheduler, initialization or order authority.
 This is an integration entry point, not an installed operational service.
 """
+from . import retired_platform
 import asyncio
 from datetime import datetime, timedelta, timezone
 import os
@@ -36,6 +37,7 @@ async def run_account_status(call_tool, *, account_ref, strategy_ref, verified_u
     atomic delivery claim prevent duplicate sends. No ledger is auto-created.
     The caller supplies an already-authorized async MCP callback and sender.
     """
+    retired_platform.block()
     try:
         if os.getenv('GITHUB_ACTIONS'):
             raise DeliveryError()

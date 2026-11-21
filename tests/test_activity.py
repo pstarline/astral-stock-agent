@@ -10,6 +10,8 @@ from astral_stock_agent.activity import collect_activity, normalize_activity, re
 from astral_stock_agent.cli import main
 from astral_stock_agent.report import InvalidSnapshot, render
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 NOW = datetime(2026, 11, 6, 21, 5, tzinfo=timezone.utc)
 

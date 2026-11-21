@@ -3,6 +3,7 @@
 A missing deployment is not evidence of zero orders, fills or profit. This
 module cannot grant order authority or replace any existing strategy.
 """
+from . import retired_platform
 import asyncio
 from datetime import datetime, timedelta, timezone
 
@@ -81,6 +82,7 @@ async def collect_preflight(call_tool, *, account_ref, strategy_ref, verified_us
     No credentials are obtained here. Orders, trades, strategy mutation and
     Telegram are absent. The Work caller supplies actual MCP results.
     """
+    retired_platform.block()
     clock = clock or (lambda: datetime.now(timezone.utc))
 
     async def read(name):

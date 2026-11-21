@@ -5,6 +5,7 @@ accepted by report.render or Telegram delivery. MCP trade history currently
 does not expose a fill ID or order ID. Identical trade rows are preserved.
 """
 
+from . import retired_platform
 import asyncio
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -174,6 +175,7 @@ async def collect_activity(call_tool, *, account_ref, strategy_ref, verified_us_
     Does not obtain credentials or open an HTTP connection. The caller must
     supply actual tool results, not model-written substitutes.
     """
+    retired_platform.block()
     clock = clock or (lambda: datetime.now(timezone.utc))
     now = clock()
     if now.tzinfo is None or start.tzinfo is None or end.tzinfo is None:
@@ -229,6 +231,7 @@ async def collect_session_activity(call_tool, *, account_ref, strategy_ref,
     Explicit holidays and not-yet-closed dates fail before any MCP call. Without
     a date, select the latest completed session; never relabel it as today's.
     """
+    retired_platform.block()
     clock = clock or (lambda: datetime.now(timezone.utc))
     now = clock()
     session = (latest_closed_session(now) if trading_day is None

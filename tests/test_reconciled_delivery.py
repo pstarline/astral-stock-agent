@@ -10,6 +10,8 @@ import pytest
 import astral_stock_agent.cli as cli
 from astral_stock_agent.delivery import Outbox
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 @pytest.fixture
 def environment(tmp_path, monkeypatch):

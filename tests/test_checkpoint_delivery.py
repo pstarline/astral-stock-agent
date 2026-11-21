@@ -10,6 +10,8 @@ from astral_stock_agent.closing_books import ClosingBooks
 from astral_stock_agent.delivery import DeliveryError
 from test_reconciled_delivery import environment, rows
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 @pytest.fixture
 def checkpoint(environment):

@@ -15,6 +15,8 @@ from astral_stock_agent.activity import collect_session_activity, render_activit
 from astral_stock_agent.report import InvalidSnapshot, render
 from astral_stock_agent.sessions import SessionError, latest_closed_session, require_closed_session, session_on
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 def dt(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))

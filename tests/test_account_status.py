@@ -10,6 +10,8 @@ from astral_stock_agent.account_status import render_account_status
 from astral_stock_agent.delivery import DeliveryError, Outbox
 from test_account_observation import bundle, NOW
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 @pytest.fixture
 def environment(tmp_path, monkeypatch):

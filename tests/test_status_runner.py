@@ -11,6 +11,8 @@ from astral_stock_agent.delivery import DeliveryError, Outbox
 from astral_stock_agent.status_runner import run_account_status
 from test_account_observation import NOW, bundle
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 @pytest.fixture
 def runtime(tmp_path, monkeypatch):

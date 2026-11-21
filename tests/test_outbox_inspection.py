@@ -7,6 +7,8 @@ import pytest
 from astral_stock_agent import cli
 from astral_stock_agent.delivery import DeliveryError, Outbox
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 def seed(path):
     Outbox(path, create=True)
