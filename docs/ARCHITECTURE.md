@@ -314,6 +314,21 @@ v1 필드와 중요 변경 digest 계약을 유지한다. 진단 코드 갱신�
 필요하며 후보 인계가 검증 통과/전략 자동 채택을 뜻하지 않는다. 공통 독립 검증 실행기는 아래와 같이 추가하되 전체 승인 근거는 미완료다.
 
 
+## 제한된 뉴스 메타데이터 비교
+
+news_comparison.compare_news_batches는 기존 NewsBatch 두 개만 읽는 순수 진단이다.
+source/document별 관측 콘텐츠 해시를 비교해 재관측·내용 변경/상충·입력 신규/부재를 구분한다.
+partial/failed·미래 관측 필터·서로 다른 비어 있지 않은 출처 집합은 unavailable이다.
+같은 출처 집합도 질의/필터/기간/페이지·공급자 범위 동등성을 인증하지 않으며 빈 결과는
+정상 시장·완전 수집·원문 무변경이 아니다. 부재는 입력 부재일 뿐 철회/삭제 판정이 아니다.
+earliest_supplied_observation은 두 입력 중 최소 시각만이고 역사적 최초 공개/영속first-seen이
+아니다. before에는 이전 입력만 사용한다. 원문/description/category·응답 변화는 비교하지 않는다.
+변경/상충을 실제 정정·새 사건·어느 값의 진실로 승격하지 않는다. 원 batch와 as_of/max_age·
+collection_status·발표/관측·평가 이유 및 출력의 연결 근거는 호출자가 비공개 유지한다.
+해시도 익명화를 보장하지 않으며 같은 해시로 stale을 해소하거나 적격성을 캐시하지 않는다.
+research_eligibility_evaluated/deployment_approved=false다. ② 제한 소비 검토는 완료했으나
+공유 범위/영속 이력·실제 수집/시장 분석·전략/Worker 연결은 미완료다. 수집/저장·전송은 없다.
+
 ## 플랫폼 독립 공개 출처 근거 기록
 
 public_strategy_evidence.build_public_evidence는 호출자가 공급한 논문/공개 프로젝트/저자 문서의
