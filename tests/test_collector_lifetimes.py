@@ -12,6 +12,8 @@ from astral_stock_agent.preflight import collect_preflight
 from astral_stock_agent.report import InvalidSnapshot
 from test_preflight import NOW, bundle
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 @pytest.fixture(params=['preflight', 'activity_scope', 'activity_history'])
 def collection(request):

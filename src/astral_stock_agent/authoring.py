@@ -4,6 +4,7 @@ Always validate_only. No saving, backtest start, deployment or order submission
 is available through this adapter. Syntax acceptance is not profitability,
 execution parity or approval of operational sizing/capital/risk.
 """
+from . import retired_platform
 import copy
 import json
 
@@ -103,6 +104,7 @@ def inspect_sma_preview(response, request):
 
 async def validate_sma_preview(call_tool, *, symbol, window, units, verified_us_symbols):
     """One authenticated validation call; no retries or credential acquisition."""
+    retired_platform.block()
     request = sma_preview_request(symbol=symbol, window=window, units=units,
                                   verified_us_symbols=verified_us_symbols)
     try:

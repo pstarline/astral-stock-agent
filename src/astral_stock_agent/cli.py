@@ -1,4 +1,5 @@
 import argparse
+from . import retired_platform
 import json
 import os
 import sqlite3
@@ -248,7 +249,7 @@ def _main(argv=None):
         except (OSError, ValueError, sqlite3.Error, DeliveryError):
             print("Outbox initialization blocked: private storage required")
             return 2
-    parser = _PrivateArgumentParser(description="Validate an Astral paper snapshot and preview a daily report")
+    parser = _PrivateArgumentParser(description="Read historical snapshots offline; external-platform sending is retired")
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--send", action="store_true", help="Send to configured private Telegram destination")
     parser.add_argument("--database", type=Path, help="Existing durable PRIVATE runtime volume path")
@@ -262,6 +263,8 @@ def _main(argv=None):
     parser.add_argument("--us-symbol", action="append", default=[], help="Independently verified US-equity symbol for activity scope")
     args = parser.parse_args(argv)
     try:
+        if args.send:
+            retired_platform.block()
         if args.account_status and (args.reconcile or args.activity or args.preflight
                                     or args.account_observation or args.book_directory is not None):
             raise InvalidSnapshot("limited account status is a separate report mode")

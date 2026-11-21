@@ -10,6 +10,8 @@ import pytest
 import astral_stock_agent.public_discovery as discovery
 from astral_stock_agent.independent_ledger import IndependentPaperLedger
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 NOW = datetime(2026, 11, 20, 12, tzinfo=timezone.utc)
 
 

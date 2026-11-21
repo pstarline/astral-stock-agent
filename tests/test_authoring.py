@@ -8,6 +8,8 @@ from astral_stock_agent.authoring import (
     AuthoringError, inspect_sma_preview, sma_preview_request, validate_sma_preview,
 )
 
+pytestmark = pytest.mark.usefixtures("historical_platform_contract")
+
 
 def request(**overrides):
     return sma_preview_request(**(dict(symbol='SPY', window=20, units=1, verified_us_symbols=['SPY']) | overrides))

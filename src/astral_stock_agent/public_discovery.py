@@ -5,6 +5,7 @@ has no HTTP client, credentials, source execution, copy/save, order or deploymen
 interface. Missing evidence stays None. Observed payload hashes are change
 evidence, NEVER provider strategy versions or independent validation.
 """
+from . import retired_platform
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -429,6 +430,7 @@ async def run_public_discovery(call_tool, *, directory, verified_us_symbols, que
     the candidate/handoff commit; partial responses never produce a handoff.
     Unfinished/failed attempts require manual reconciliation, never auto-retry.
     """
+    retired_platform.block()
     try:
         if type(enabled) is not bool or type(mvp_verified) is not bool:
             raise ValueError

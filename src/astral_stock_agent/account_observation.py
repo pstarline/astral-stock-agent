@@ -4,6 +4,7 @@ Uses the existing preflight scope/receipt validation. Cash is the provider's
 account field, not equity, buying power or a closing balance. No order/fill/P&L
 value is inferred from absence of a deployment.
 """
+from . import retired_platform
 import asyncio
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -60,6 +61,7 @@ async def collect_account_observation(call_tool, *, account_ref, strategy_ref,
     On failure/cancellation, settle both callback tasks before returning. The
     callback must cooperate with cancellation and close its own transport.
     """
+    retired_platform.block()
     clock = clock or (lambda: datetime.now(timezone.utc))
 
     async def read(name):
