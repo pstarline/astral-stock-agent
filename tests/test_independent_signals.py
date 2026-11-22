@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from astral_stock_agent.cli import main
 from astral_stock_agent.independent_paper import preview_independent_paper
 from astral_stock_agent.independent_signals import SMA_RULE, preview_independent_sma
 from astral_stock_agent.research_data import ResearchDataError
@@ -147,6 +146,7 @@ def test_datetime_label_semantics_and_hostile_decimal_context():
 
 
 def test_cli_generated_preview_cannot_access_astral_outbox_or_telegram(tmp_path,monkeypatch,capsys):
+    from astral_stock_agent.cli import main
     import astral_stock_agent.cli as cli
     def forbidden(*a,**kw): raise AssertionError('no operations')
     for name in ('Outbox','Telegram','ClosingBooks'):
@@ -166,6 +166,7 @@ def test_cli_generated_preview_cannot_access_astral_outbox_or_telegram(tmp_path,
 
 
 def test_public_ci_blocks_before_reading_or_running_rule(monkeypatch,capsys):
+    from astral_stock_agent.cli import main
     monkeypatch.setenv('GITHUB_ACTIONS','true')
     def forbidden(*a,**kw): raise AssertionError('no private access')
     monkeypatch.setattr(Path,'open',forbidden)

@@ -302,7 +302,7 @@ def test_offline_runner_has_no_file_network_ledger_or_delivery_authority(monkeyp
     result = run(stress_costs=dict(commission_bps='5', slippage_bps='5'))
     assert all(c.status == 'passed' for c in result.checks)
 
-def test_common_validation_fixture_import_does_not_require_retired_discovery():
+def test_common_validation_fixture_and_runner_do_not_require_retired_modules():
     import os
     from pathlib import Path
     import subprocess
@@ -310,21 +310,34 @@ def test_common_validation_fixture_import_does_not_require_retired_discovery():
     root = Path(__file__).resolve().parents[1]
     script = '''
 import importlib.abc, sys
+blocked = {'astral_stock_agent.' + name for name in (
+    'cli', 'research_contracts', 'astral', 'public_discovery', 'authoring',
+    'preflight', 'activity', 'status_runner', 'account_observation')}
+blocked.add('test_public_discovery')
 class Guard(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
-        if fullname in ('astral_stock_agent.public_discovery', 'test_public_discovery'):
-            raise AssertionError('retired discovery dependency')
+        if fullname in blocked:
+            raise AssertionError('retired module dependency')
 sys.meta_path.insert(0, Guard())
+def deny_network(event, args):
+    if event.startswith('socket.'):
+        raise AssertionError('network forbidden')
+sys.addaudithook(deny_network)
 import test_independent_validation as tests
 candidate = tests.source()
 assert candidate['definition_sha256'] is candidate['evidence_sha256'] is None
 assert tests.source(assets=[])['assets'] == []
-assert 'astral_stock_agent.public_discovery' not in sys.modules
-assert 'test_public_discovery' not in sys.modules
+result = tests.run()
+assert result.status == 'insufficient' and result.scenarios
+assert tests.checks(result)['exact_replay'].status == 'passed'
+assert tests.checks(result)['terminal_prefix'].status == 'passed'
+assert not result.source_equivalence_verified and not result.actual_execution_verified
+assert not result.deployment_approved and not result.new_orders_allowed
+assert not blocked.intersection(sys.modules)
 '''
     result = subprocess.run([sys.executable, '-c', script],
         env=dict(PATH=os.defpath, PYTHONPATH=os.pathsep.join(
             (str(root/'src'), str(root/'tests'))), PYTHONDONTWRITEBYTECODE='1'),
         capture_output=True, text=True, timeout=20)
-    assert result.returncode == 0, 'common validation fixture imports retired discovery'
+    assert result.returncode == 0, 'common validation fixture or runner requires retired modules'
     assert result.stdout == result.stderr == ''
