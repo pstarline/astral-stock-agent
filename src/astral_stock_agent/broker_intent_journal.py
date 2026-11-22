@@ -16,6 +16,7 @@ import os
 import re
 
 from .broker_order_state import OrderBook, OrderIntent, OrderRecord, _identifier
+from .broker_order_preflight import PreflightContext, PreflightResult, RiskLimits, assess_order_preflight
 from .independent_ledger import IndependentPaperLedger, IndependentLedgerError, _canonical, _unique
 
 
@@ -46,6 +47,16 @@ class IntentReceipt:
     @property
     def reconciliation_required(self):
         return True
+
+    @property
+    def order_submission_approved(self):
+        return False
+
+
+@dataclass(frozen=True)
+class CheckedIntentResult:
+    assessment: PreflightResult
+    receipt: IntentReceipt | None = field(default=None, repr=False)
 
     @property
     def order_submission_approved(self):
@@ -167,6 +178,9 @@ class PrivateIntentJournal:
 
     @_locked
     def record(self, intent: OrderIntent) -> IntentReceipt:
+        return self._record_receipt(intent)
+
+    def _record_receipt(self, intent: OrderIntent) -> IntentReceipt:
         try:
             raw = _encode(intent)
             self._check_intent(intent, intent.client_order_id)
@@ -205,6 +219,9 @@ class PrivateIntentJournal:
 
     @_locked
     def load_unreconciled_book(self) -> OrderBook:
+        return self._load_unreconciled_book()
+
+    def _load_unreconciled_book(self) -> OrderBook:
         """Read-only bounded two-pass reconstruction; NOT an atomic snapshot.
 
         Intents contain no broker outcomes. Every record is therefore unknown,
@@ -236,3 +253,26 @@ class PrivateIntentJournal:
             return OrderBook(self._mode, self._scope, tuple(records))
         except (OSError, ValueError, TypeError, DecimalException):
             raise IntentJournalError(ERROR) from None
+
+    @_locked
+    def preflight_and_record(self, intent: OrderIntent, context: PreflightContext,
+                             limits: RiskLimits | None = None) -> CheckedIntentResult:
+        """Diagnose declared inputs and persist intent under ONE scope lock.
+
+        No receipt on a failed diagnostic. Existing intent outcomes are unknown,
+        blocking a second intent even with a different key or symbol. One pass
+        records private metadata only, never a broker request or permission.
+        Context time/approval/account/quotes remain unverified declarations;
+        this does not freshen them during I/O or authorize any dispatch after
+        returning. Direct filesystem writers/different journals are not fenced.
+        """
+        book = self._load_unreconciled_book()
+        assessment = assess_order_preflight(book, intent, context, limits)
+        if not assessment.checks_passed:
+            return CheckedIntentResult(assessment)
+        receipt = self._record_receipt(intent)
+        if not receipt.created:
+            # An unexpected preexisting file after a clean inventory must not
+            # turn into a successful preparation; keep it for reconciliation.
+            raise IntentJournalError(ERROR)
+        return CheckedIntentResult(assessment, receipt)

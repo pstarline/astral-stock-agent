@@ -70,6 +70,26 @@ private검사·핀내용·fd/path inode를 대조한다. record 내부 읽기는
 비협조적 파일변조/분산계좌잠금·전원/파일시스템보장을 인증하지 않는다. 실제 배포환경 검증과
 계좌전체 atomic preflight/의도선점·실제 stop/주문 집행은 후속 필수 단계다.
 
+### 같은 잠금 안에서 안전 진단과 의도 기록
+
+`preflight_and_record`는 기존핀 협조잠금을 한 번 얻어 `_load_unreconciled_book` → 기존
+`assess_order_preflight` → `_record_receipt`를 연결한다. 공개 메서드들은 같은 private
+helper를 사용하며 중첩 잠금을 얻지 않는다. 검사와 기록 사이에도 같은핀의 다른 협조적
+read/record/inventory가 진입하지 못한다. 진단 실패는 receipt=None이고 쓰지 않는다.
+진단 통과 후 예상 외 기존 동일키 영수증을 발견해도 정상 준비로 반환하지 않고 고정 오류와
+원문을 보존한다. 저장 sync/부분 실패도 자동 수리/재시도하지 않는다.
+
+반환 CheckedIntentResult/receipt는 항상 주문전송승인false다. 선언된 승인이 true여도
+실제 사용자 승인/계좌·시세 진위를 인증하지 않는다. context의 now/관측시각도 호출자 선언이며
+I/O 중 신선도를 새로 확인하는 것이 아니다. 실제 전송이 없고 현재 Paper/Worker/계좌/보고와
+미연결이다. 새 API의 한 임계구역은 협조적 같은 저장소에만 적용되며 직접파일writer·다른
+저장소/분산계좌·승인변경/시장/계좌의 외부 상태를 잠그지 않는다.
+
+첫 의도 기록 후 결과가 실제 전송됐는지 모르는 영수증으로 남으므로 다음 복원은 unknown이다.
+이후 신규/다른종목/재사용 키는 관측/대조 영속 연동 전 계속 차단한다. 현금/체결/실제 주문
+상태 대조·승인/권한/세션·stop집행·계좌전체 통합과 브로커 API는 여전히 후속 필수 단계다.
+기존 raw record는 메타데이터 기록 API이며 전송 허가가 아니고 안전진단/승인 우회로로 쓰지 않는다.
+
 ## 비연결 안전 프리플라이트 — 운영 권한 없음
 
 `broker_order_preflight`는 기존 OrderBook/OrderIntent를 읽는 순수 진단이다. 명시된
