@@ -130,7 +130,8 @@ pending/sending/unknown은 수신 여부를 확인하기 전 재전송하지 않
 - https://docs.docker.com/reference/cli/docker/container/run/ — env-file/bind/권한
 
 실제 서버/Docker 준비/설치 점검/고정 메시지 수신은 위의 사용자 보고 범위만 확인했다.
-재부팅 영속성·지속 메모리/디스크 여유·실제 일일 Telegram 수신은 미검증이다. Public CI에서는
+거래일2026-11-20 첫 현금 기준선 일일 보고 수신은 사용자가 확인했다. 다음 거래일 체결·지속/중복·
+재부팅 영속성·지속 메모리/디스크 여유·실제 복구는 미검증이다. Public CI에서는
 운영 비밀/실제 전송을 사용하지 않는다. 개발 기본 주기는 매시간이며 최신 역할별 재개 지시를 따른다. 개발 예약은 운영 수집/주문
 예약과 다르며 공개 출처 주간 탐색은 별도 미활성이다.
 
@@ -162,3 +163,19 @@ python -m astral_stock_agent.host_storage fingerprint --directory /private/offli
 accounting_verified/recipient_receipt_verified는 false다. 원본과 같아도 pending/sending/unknown은
 운영자 전송 대조 전 자동 재전송하지 않으며 sent도 재전송하지 않는다. 명령은 복사/복원/삭제/
 SQLite checkpoint·발송·Worker 시작을 수행하지 않는다. 실제 복구 검증과 재가동 판단은 별도다.
+
+
+## 합성 별도 프로세스 복구 회귀의 범위
+
+`tests/test_paper_process_recovery.py`는 운영 인증정보를 상속하지 않는 새 Python 프로세스마다
+고정 합성 시세·가짜 전송기만 공급한다. 네트워크 audit hook과 실제 Telegram 전송기 거부를
+함께 둔다. 최초 기준선→같은 거래일 재시작→중지된 합성 복사본 재시작→다음 시가 가상 체결→
+동일 거래일 반복에서 수집/발송 횟수·원장과 원본/복사본 파일 바이트·모드를 대조한다.
+
+가짜 전송기 내부에서 `os._exit`로 Python 정리/예외 처리를 건너뛴 종료도 검사한다. Outbox의
+sending과 미완료 control을 지우지 않고 같은 날/다음 날·복사본의 모든 새 작업을 차단해야 한다.
+불완전 control의 fingerprint 실패는 정상적인 차단이며 복구를 위해 초기화/삭제하라는 뜻이 아니다.
+
+이는 합성 임시 파일·단일 호스트의 프로세스 경계 회귀다. 실제 전송/수신, 호스트 재부팅·전원
+장애/fsync 하드웨어 보장·자동 백업의 신선도·운영 복구 성공이나 수동 재가동 승인 증거는 아니다.
+실제 원장/시세/Outbox/control·저장 보고/해시는 이 테스트에서 열거나 변경하지 않는다.
