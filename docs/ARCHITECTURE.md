@@ -54,11 +54,21 @@ reconciliation_required=true/order_submission_approved=false다. 원문/객체/a
 아니다. 기존 preflight는 다른 종목 unknown도 계좌 범위에서 차단한다. 원장/백테스트 손익이나
 실제 보고에 체결값으로 전용하지 않는다. 반환 book의 주문 승인 속성은 항상 false다.
 
-두 번 읽기의 일치는 원자적 snapshot·전역 계좌 잠금·writer 배타가 아니며 마지막 열거 뒤의
-추가 파일이나 두 열거 전에 사라진 과거 기록을 인증할 수 없다. 빈 book도 과거 완전성/
-무주문·무체결/계좌 대조 완료가 아니다. 일관된 운영 snapshot에는 외부 writer 배타와
-별도 실제 브로커/계좌 대조·모든 관측/체결 영속이 필요하다. 현재 Worker/API/실제 주문과
-연결하지 않는다. 이후 새 키 기록을 허가하거나 unknown을 자동 해소하는 기능이 아니다.
+같은 불변scope핀의 read/record/inventory는 이제 비차단 POSIX flock으로 배타 진입한다.
+읽는 동안 같은핀을 사용하는 협조적 journal 기록은 거부되지만 직접 파일 writer는 제외된다.
+잠금은 읽기 반환 전에 해제되므로 이후 추가나 과거 삭제를 인증하지 못한다. 빈 book도 과거
+완전성/무주문·무체결/계좌 대조 완료가 아니다. 이후 preflight+기록 전체가 원자적인 것도
+아니다. 외부writer 배타와 실제 브로커/계좌 대조·관측/체결 영속이 필요하며 현재 Worker/API/
+실제 주문과 연결하지 않는다. 새 키 기록을 허가하거나 unknown을 자동 해소하지 않는다.
+
+기존0600 scope핀을 O_RDONLY/NOFOLLOW로 열어 LOCK_EX|LOCK_NB를 얻고 전후에 기존
+private검사·핀내용·fd/path inode를 대조한다. record 내부 읽기는 잠금된 private helper를
+사용해 재진입하지 않는다. busy/검증 오류는 고정 오류이고 대기/자동재시도·잠금파일 생성/
+삭제/교체·강제해제가 없다. finally의 unlock/close와 프로세스 종료의 fd해제로 해제한다.
+초기 scope핀의 명시 write-once 준비는 그대로이며 원문/저장스키마 마이그레이션이 아니다.
+동일pin/inode를 사용하는 협조적 로컬프로세스 범위이며 다른 디렉터리/동일계좌의 중복저장소·
+비협조적 파일변조/분산계좌잠금·전원/파일시스템보장을 인증하지 않는다. 실제 배포환경 검증과
+계좌전체 atomic preflight/의도선점·실제 stop/주문 집행은 후속 필수 단계다.
 
 ## 비연결 안전 프리플라이트 — 운영 권한 없음
 
