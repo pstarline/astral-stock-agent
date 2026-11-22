@@ -314,6 +314,21 @@ v1 필드와 중요 변경 digest 계약을 유지한다. 진단 코드 갱신�
 필요하며 후보 인계가 검증 통과/전략 자동 채택을 뜻하지 않는다. 공통 독립 검증 실행기는 아래와 같이 추가하되 전체 승인 근거는 미완료다.
 
 
+## 제한된 RSS 응답 관측
+
+fed_observation.observe_fed_rss는 공급된 한정 bytes를 기존 Board RSS 파서로 읽고 UTC 수신
+시각·응답 길이/SHA256·max_age·고정 feed/profile·NewsBatch를 불변 객체로 반환한다.
+원문/본문은 보존하지 않으며 네트워크/시계/파일·수집/영속 저장/자동 실행을 추가하지 않는다.
+고정 URL/profile은 기대 입력의 범위이지 실제 공급자/성공 수신·권리 인증이 아니다.
+compare_fed_observations는 기존 뉴스 비교를 재사용하고 응답 변화와 보존 메타데이터 변화를
+구분한다. whitespace/channel/description 변화도 응답 해시를 바꾸므로 이를 기사 정정으로
+판정하지 않는다. 같은 bytes도 원본 기사 무변경을 보장하지 않는다. 해시는 버전/서명/익명화가 아니다.
+각 received_at이 자체 batch.as_of 이후면 빈/비어있지 않은 입력 모두 comparison_unavailable,
+response_changed=None/changes=()다. 부분/실패·미래 필터 등 기존 이유도 보존한다.
+cutoff 동일·UTC 동등 offset은 허용하며 수신/평가 역순과 고정 profile에 맞지 않는 객체는 거부한다.
+원 batch/as_of/max_age·평가 이유와 입력의 연결 문맥은 비공개 유지한다. 정정/연구 적격성/
+배포 플래그false이며 실제 수집·기사 분석·영속first-seen/정정 이력·Worker 연결은 미완료다.
+
 ## 제한된 뉴스 메타데이터 비교
 
 news_comparison.compare_news_batches는 기존 NewsBatch 두 개만 읽는 순수 진단이다.
@@ -345,6 +360,23 @@ public_strategy_evidence.build_public_evidence는 호출자가 공급한 논문/
 미지원/상충 규칙은 보류하며 장중 규칙을 일봉 다음시가로 바꾸면 원본 재현이 아닌 별도 가설이다.
 내용 해시만으로 과거 가용성/재검증 적격성을 승계하지 않는다. 실제 탐색/후보 재현·성능/
 워크포워드/표본외·Paper 승격/운영 선택·주간 자동화는 이 계약의 완료 범위가 아니다.
+
+## 선언된 단일 분리 평가 구간
+
+research_holdout.evaluate_frozen_window는 기존 로컬 SMA/반전 가설 하나와 private CSV에서
+선정 종료 직후의 명시 평가 구간을 계산한다. 동결 선언은 선정 종가 이상/평가 첫 시가 미만,
+평가 세션 최소2개·trade_from=평가 시작을 요구한다. 앞선 가격은 지표 준비에만 쓰고 이전
+포지션/손익/미실행 신호를 이월하지 않는다. 평가 계좌는 flat/cash 재설정이며 연속 Paper가 아니다.
+기존 validator 재실행/terminal-prefix·선택 단일 비용 스트레스를 최대4회 재사용하고 일부 실패는
+held다. 최적화/선정·자동 fold/워크포워드는 없다. 가설 해시는 규칙/기간/현금·비용을 묶되
+미래 가격 bytes/hash·행수는 제외하며 실제 계산 근거에는 결합한다. 호출자 동결 선언/해시가
+사전등록·실제 미관측/선정 이력·독립성의 인증은 아니다. 성공 계산도 insufficient/승인false다.
+공개 근거/권리·판본/관측은 이 가설 해시와 별도로 대응시켜야 하며 origin=self는 로컬 계산
+경로일 뿐 공개 출처를 자체 출처로 재분류하지 않는다. 자연어 근거의 자동 spec 변환은 없다.
+기존 research_trend→research_contracts의 순수 공통 ExecutionParity/과거 형식 해석 간접 import는
+남아 있다. 신규 가설 경로에서 외부 조건 비교/서비스 호출은 하지 않으나 물리 분리 완료는 아니다.
+공유 타입 분리는 운영과의 회귀를 확인할 별도 저위험 작업이다. 실제 표본외/성과·Paper 승격/
+운영/주문·자료 수집/저장/전송 연결은 없다. 원 입력/선정·동결 문맥은 비공개로 보존한다.
 
 ## 공통 독립 검증 실행기와 역할별 개발 재개
 
