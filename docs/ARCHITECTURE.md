@@ -346,6 +346,23 @@ public_strategy_evidence.build_public_evidence는 호출자가 공급한 논문/
 내용 해시만으로 과거 가용성/재검증 적격성을 승계하지 않는다. 실제 탐색/후보 재현·성능/
 워크포워드/표본외·Paper 승격/운영 선택·주간 자동화는 이 계약의 완료 범위가 아니다.
 
+## 선언된 단일 분리 평가 구간
+
+research_holdout.evaluate_frozen_window는 기존 로컬 SMA/반전 가설 하나와 private CSV에서
+선정 종료 직후의 명시 평가 구간을 계산한다. 동결 선언은 선정 종가 이상/평가 첫 시가 미만,
+평가 세션 최소2개·trade_from=평가 시작을 요구한다. 앞선 가격은 지표 준비에만 쓰고 이전
+포지션/손익/미실행 신호를 이월하지 않는다. 평가 계좌는 flat/cash 재설정이며 연속 Paper가 아니다.
+기존 validator 재실행/terminal-prefix·선택 단일 비용 스트레스를 최대4회 재사용하고 일부 실패는
+held다. 최적화/선정·자동 fold/워크포워드는 없다. 가설 해시는 규칙/기간/현금·비용을 묶되
+미래 가격 bytes/hash·행수는 제외하며 실제 계산 근거에는 결합한다. 호출자 동결 선언/해시가
+사전등록·실제 미관측/선정 이력·독립성의 인증은 아니다. 성공 계산도 insufficient/승인false다.
+공개 근거/권리·판본/관측은 이 가설 해시와 별도로 대응시켜야 하며 origin=self는 로컬 계산
+경로일 뿐 공개 출처를 자체 출처로 재분류하지 않는다. 자연어 근거의 자동 spec 변환은 없다.
+기존 research_trend→research_contracts의 순수 공통 ExecutionParity/과거 형식 해석 간접 import는
+남아 있다. 신규 가설 경로에서 외부 조건 비교/서비스 호출은 하지 않으나 물리 분리 완료는 아니다.
+공유 타입 분리는 운영과의 회귀를 확인할 별도 저위험 작업이다. 실제 표본외/성과·Paper 승격/
+운영/주문·자료 수집/저장/전송 연결은 없다. 원 입력/선정·동결 문맥은 비공개로 보존한다.
+
 ## 공통 독립 검증 실행기와 역할별 개발 재개
 
 independent_validation.validate_candidate는 기존 명시 SMA/일봉 반전 spec과 private CSV를
