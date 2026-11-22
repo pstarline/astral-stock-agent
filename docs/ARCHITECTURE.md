@@ -314,6 +314,21 @@ v1 필드와 중요 변경 digest 계약을 유지한다. 진단 코드 갱신�
 필요하며 후보 인계가 검증 통과/전략 자동 채택을 뜻하지 않는다. 공통 독립 검증 실행기는 아래와 같이 추가하되 전체 승인 근거는 미완료다.
 
 
+## 제한된 RSS 응답 관측
+
+fed_observation.observe_fed_rss는 공급된 한정 bytes를 기존 Board RSS 파서로 읽고 UTC 수신
+시각·응답 길이/SHA256·max_age·고정 feed/profile·NewsBatch를 불변 객체로 반환한다.
+원문/본문은 보존하지 않으며 네트워크/시계/파일·수집/영속 저장/자동 실행을 추가하지 않는다.
+고정 URL/profile은 기대 입력의 범위이지 실제 공급자/성공 수신·권리 인증이 아니다.
+compare_fed_observations는 기존 뉴스 비교를 재사용하고 응답 변화와 보존 메타데이터 변화를
+구분한다. whitespace/channel/description 변화도 응답 해시를 바꾸므로 이를 기사 정정으로
+판정하지 않는다. 같은 bytes도 원본 기사 무변경을 보장하지 않는다. 해시는 버전/서명/익명화가 아니다.
+각 received_at이 자체 batch.as_of 이후면 빈/비어있지 않은 입력 모두 comparison_unavailable,
+response_changed=None/changes=()다. 부분/실패·미래 필터 등 기존 이유도 보존한다.
+cutoff 동일·UTC 동등 offset은 허용하며 수신/평가 역순과 고정 profile에 맞지 않는 객체는 거부한다.
+원 batch/as_of/max_age·평가 이유와 입력의 연결 문맥은 비공개 유지한다. 정정/연구 적격성/
+배포 플래그false이며 실제 수집·기사 분석·영속first-seen/정정 이력·Worker 연결은 미완료다.
+
 ## 제한된 뉴스 메타데이터 비교
 
 news_comparison.compare_news_batches는 기존 NewsBatch 두 개만 읽는 순수 진단이다.
