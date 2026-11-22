@@ -1,5 +1,36 @@
 # 개발 상태 — 2026-11-23 (한국 시간)
 
+## 최신 실행 — ① 공통 검증 fixture의 CLI 간접 import 분리 PR86 검토
+
+- Public main4de990c/AGENTS·STATUS·PR86/② 선점과③ 제한 검토·mainCI45047494606
+  success를 확인했다. PR headb3bebdb의 CI45048484548 success는 사전 근거이고 최종
+  문서 통합head를 별도 검사한다. 로컬 work/role1-review-cli-fixtures-20261123에서
+  두 테스트를 검토하고 같은 실질PR에 AGENTS/STATUS만 통합한다. PR댓글에 범위를 선점하고
+  게시 전 head/겹침을 재확인한다. 댓글은 잠금이 아니며 제품src/운영파일은 변경하지 않는다.
+- tests/test_independent_signals의 CLI main import를 실제 CLI검사2개 내부로 이동했다.
+  ① AST 대조로 해당 import 노드만 제외한 전체 테스트 구조 동일성과 src/CI 무변경을 확인했다.
+  기존 CLI 미리보기/공개CI 파일 접근 전 차단의 assertions는 보존한다. 자료 생성 helper를
+  불러오는 것과 CLI의 실제 안전 검사를 분리하며 역사/운영 차단 테스트를 삭제하지 않는다.
+- 공통 fresh-process 검사는 프로젝트9개(cli/research_contracts/서비스·탐색)와 역사
+  탐색fixture1개 총10개 import를 거부한다. 최소source의 None해시/빈assets에 더해 실제
+  합성 validator의 계산/반복/prefix·전체insufficient·출처동등/실제실행·운영/주문false를
+  대조한다. 자식은 최소env만 받고 network audit hook을 둔다. 부모의 기로딩 상태로 우회하지
+  못하지만 모든 모듈/입력의 부작용 부재나 실제 source/성과·표본외 통과를 인증하지 않는다.
+- ③의 제한 정적/AST 검토와② 관련224개 결과는 해당 역할 인계다.①는 별도 전체1977개·
+  59subtests 통과(기존pandas경고4개), compileall/공백·변경파일 민감정보 패턴 검사를 확인했다.
+  로컬3.12.14와 원격표준Ubuntu/Python3.11
+  단일CI를 구분한다. 최종head/필수CI·충돌/보호규칙 통과한 저위험PR만 병합하며 검사약화/
+  우회없음. 오류·실패/인과성·권한/정보노출 자체 별도리뷰이며 전체 외부독립리뷰 미수행이다.
+  로컬fetch 브랜치명 입력오타1회는 조회된 정확한ref로 교정했고 CI를 반복 재실행하지 않았다.
+- 실제CLI/별도역사projection은 해당 모듈을 계속 명시 import하며 전체 역사코드 제거 완료가
+  아니다. 공통 fixture의 잔여 CLI 결합만 해소했다. 같은 분리의 중복 구현/문서전용PR을
+  만들지 않고②③에는 남은 실제CLI/역사경계·기본차단 보존 범위를 조율하도록 인계한다.
+- 기존 서버/이미지·전략/시세·원장/Outbox/control·보고/해시·계좌/인증/주문/전송·실제수집/
+  운영설정 접근·변경없음. A실제체결·지속/중복·재부팅/복구와 B실제후보/표본외·워크포워드,
+  C전체어댑터/D승인실거래미완료. 다음①는 비밀없는 최소실제서버출력 대조를 우선하고
+  접근불가시 writer배타/관측영속의 작은미완료범위선정. 사용자새결정없음·사용량/모델High
+  미확인·기존①예약조회만/타예약미변경. main병합은서버배포가아니다.
+
 ## 최신 실행 — ① 저장 의도의 보수적 불명확 상태 복원
 
 - Public maina302f31/AGENTS·STATUS·PR0/mainCI45041984564 success/82 해제·② PR79
