@@ -34,6 +34,9 @@ unknown/중복키·미래/만료 관측·손실/포지션 한도는 차단하며
 broker_intent_journal은 별도 private 디렉터리의 불변 의도 영수증만 저장한다. 기존 Paper
 저장소를 사용하지 않고 재시작 때 자동 초기화하지 않는다. 신규/기존 기록 모두 전송 승인false·
 대조필요이며 큐/자동 재전송이 아니다. 계좌전체 배타/체결·상태 영속/stop 집행은 아직 미완료다.
+load_unreconciled_book은 한 저장소의 유한 두 번 읽기에서 관측한 의도를 모두unknown으로
+복원한다. 내용/목록 변화·오염은 차단하나 writer 배타·원자적 snapshot/과거 완전성 인증은
+아니다. 빈 목록/unknown의 filled_quantity=0을 실제 무주문·무체결 증명으로 취급하지 않는다.
 
 ## 현재 운영 보호
 

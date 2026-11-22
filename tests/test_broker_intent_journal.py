@@ -91,7 +91,8 @@ def test_missing_key_mode_scope_and_missing_pin_block_without_recreation(journal
 ])
 def test_partial_malformed_and_oversize_receipts_preserved(journal,raw):
     store,path=journal;p=intent_path(path);p.write_bytes(raw);p.chmod(0o600)
-    for action in (lambda:store.read('synthetic-key'),lambda:store.record(intent())):
+    for action in (lambda:store.read('synthetic-key'),lambda:store.record(intent()),
+                   store.load_unreconciled_book):
         with pytest.raises(IntentJournalError) as exc: action()
         assert str(exc.value)==ERROR
     assert p.read_bytes()==raw
@@ -117,7 +118,8 @@ def test_unsafe_receipt_storage_is_never_repaired_or_followed(journal,tmp_path,k
     if kind=='symlink':p.symlink_to(other)
     elif kind=='hardlink':os.link(other,p)
     else:p.write_bytes(b'partial');p.chmod(0o644)
-    for action in (lambda:store.read('synthetic-key'),lambda:store.record(intent())):
+    for action in (lambda:store.read('synthetic-key'),lambda:store.record(intent()),
+                   store.load_unreconciled_book):
         with pytest.raises(IntentJournalError):action()
     assert other.read_bytes()==b'synthetic-private-marker'
     if kind=='symlink':assert p.is_symlink()
@@ -171,6 +173,9 @@ sys.addaudithook(deny)
 j=PrivateIntentJournal(sys.argv[1],mode='paper',scope_digest='a'*64)
 r=j.read('synthetic-key')
 assert not r.created and r.reconciliation_required and not r.order_submission_approved
+b=j.load_unreconciled_book()
+assert b.reconciliation_required and not b.order_submission_approved
+assert len(b.records)==1 and b.records[0].status=='unknown'
 '''
     root=Path(__file__).resolve().parents[1]
     r=subprocess.run([sys.executable,'-c',script,str(path)],capture_output=True,text=True,
@@ -190,3 +195,71 @@ def test_public_ci_default_block_occurs_before_storage_probe(tmp_path,monkeypatc
 def test_invalid_keys_are_fixed_errors(journal,key):
     with pytest.raises(IntentJournalError) as exc:journal[0].read(key)
     assert str(exc.value)==ERROR
+
+
+def test_inventory_is_read_only_and_all_intents_are_unknown_after_restart(journal):
+    store,path=journal
+    empty=store.load_unreconciled_book()
+    assert not empty.records and not empty.order_submission_approved
+    store.record(intent());store.record(intent(client_order_id='other',symbol='QQQ'))
+    before={p.name:(p.read_bytes(),p.stat().st_mode) for p in path.iterdir()}
+    book=open_journal(path).load_unreconciled_book()
+    assert len(book.records)==2 and book.reconciliation_required
+    assert {r.intent.symbol for r in book.records}=={'SPY','QQQ'}
+    assert all(r.status=='unknown' and r.broker_order_id is None for r in book.records)
+    assert not book.order_submission_approved
+    assert {p.name:(p.read_bytes(),p.stat().st_mode) for p in path.iterdir()}==before
+
+
+def test_reconstructed_other_symbol_unknown_blocks_existing_preflight(journal):
+    from test_broker_order_preflight import context,limits,intent as proposed
+    from astral_stock_agent.broker_order_preflight import assess_order_preflight
+    store,_=journal;store.record(intent(symbol='QQQ'))
+    book=store.load_unreconciled_book()
+    result=assess_order_preflight(book,proposed(),context(),limits())
+    assert result.reasons==('order_unknown',)
+    assert not result.order_submission_approved
+
+
+@pytest.mark.parametrize('kind',['foreign_name','wrong_key_filename','foreign_scope','directory'])
+def test_inventory_rejects_foreign_or_misbound_entries_without_cleanup(journal,kind):
+    store,path=journal;store.record(intent());p=intent_path(path)
+    if kind=='foreign_name':
+        extra=path/'unrecognized';extra.write_bytes(b'private-marker');extra.chmod(0o600)
+    elif kind=='wrong_key_filename':
+        extra=path/('0'*64+'.json');extra.write_bytes(p.read_bytes());extra.chmod(0o600)
+    elif kind=='foreign_scope':
+        value=json.loads(p.read_bytes());value['intent']['scope_digest']='b'*64
+        p.write_bytes(json.dumps(value).encode())
+    else:(path/('0'*64+'.json')).mkdir(mode=0o700)
+    names={p.name for p in path.iterdir()}
+    with pytest.raises(IntentJournalError) as exc:store.load_unreconciled_book()
+    assert str(exc.value)==ERROR and {p.name for p in path.iterdir()}==names
+
+
+@pytest.mark.parametrize('change',['append','remove','content'])
+def test_inventory_detects_between_pass_changes_and_preserves_traces(journal,monkeypatch,change):
+    store,path=journal;store.record(intent());original=store._inventory_names;calls=0
+    def changed_names():
+        nonlocal calls
+        calls+=1
+        if calls==2:
+            if change=='append':store.record(intent(client_order_id='new-key'))
+            elif change=='remove':intent_path(path).unlink()  # Synthetic race only.
+            else:
+                value=json.loads(intent_path(path).read_bytes());value['intent']['quantity']=2
+                intent_path(path).write_bytes(json.dumps(value).encode())
+        return original()
+    monkeypatch.setattr(store,'_inventory_names',changed_names)
+    with pytest.raises(IntentJournalError):store.load_unreconciled_book()
+    if change=='append':assert len(list(path.iterdir()))==3
+    elif change=='remove':assert not intent_path(path).exists()
+    else:assert json.loads(intent_path(path).read_bytes())['intent']['quantity']==2
+
+
+def test_inventory_bound_is_checked_before_reading_an_unbounded_directory(journal):
+    store,path=journal
+    for n in range(1025):
+        p=path/(f'{n:064x}'+'.json');p.write_bytes(b'partial');p.chmod(0o600)
+    with pytest.raises(IntentJournalError):store.load_unreconciled_book()
+    assert len(list(path.iterdir()))==1026
