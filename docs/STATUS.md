@@ -1,5 +1,34 @@
 # 개발 상태 — 2026-11-22 (한국 시간)
 
+## 최신 실행 — ① 순수 실행 계약과 역사 플랫폼 해석 분리
+
+- Public maine1a49d0/최신AGENTS·STATUS·PR0·선점70/73과 mainCI45010762313 success를
+  확인했다. 이슈75/work/role1-execution-contracts-20261122에서 이전 PR71의 후속 간접
+  import 분리를 선점했다. 타 역할 진행 파일과 비겹침이며 댓글은 배타 잠금이 아니다.
+- ExecutionContract/Parity·LOCAL_DAILY_EXECUTION과5필드 비교/불일치 거부를 신규 순수
+  execution_contracts로 이동했다. research_trend는 새 모듈을 직접 import한다. 기존
+  research_contracts의 역사 순수 해석 함수는 그대로 두고 공개 타입/함수는 같은 객체의
+  re-export로 보존한다. 기존 입력/계산·비용·전략 버전/보고/원장·운영 의미는 바꾸지 않는다.
+- AST 대조로 이동한2개 클래스/2개 함수와 역사 해석 함수의 구조 불변을 확인했다.
+  새 회귀는 동일/5개 불일치·기본 승인false/불변성과 구식 import별칭 identity를 검사한다.
+  별도 새 프로세스7개에서 역사 research_contracts 및 서비스 모듈 import를 강제로 거부하고
+  research_trend/독립SMA/반전/검증/holdout·paper_worker/host_storage import를 확인한다.
+  운영env/비밀은 상속하지 않고 network audit hook을 둔다. 이는 유한 import 경계 회귀이며
+  전체 코드의 모든 부작용 부재·모든 구식 CLI/import/역사 구현 제거 완료 인증은 아니다.
+- 로컬Python3.12.14 관련79개/전체1820개·59subtests 통과(기존 pandas 경고4개),
+  compileall/공백·민감정보 검사를 확인했다. 파일끝 빈줄1개를 정리했으며 제품 의미 변화는 없다.
+  표준 원격Ubuntu Python3.11 단일CI/의존성은
+  유지한다. 최종head/CI·충돌/보호규칙 통과한 저위험PR만 병합한다. 검사약화/우회없음.
+  오류·호환/타입·불변·권한/정보노출 자체 리뷰이며 외부 독립 에이전트 리뷰는 미수행이다.
+- AGENTS/ARCHITECTURE/STATUS를 실제 분리 코드와 함께 동기화하며 문서전용PR/중복구현은
+  없다. 실제 서버/이미지·원장/시세/Outbox/control·기존보고/해시·전략/계좌·인증/주문/전송·
+  서비스 호출·운영/수집 스케줄은 변경하지 않는다. 새 비용/유료API/외부AI도 없다.
+- A 실제 다음 거래일 체결·지속/중복·재부팅/실제백업·복구와 B실제후보/표본외·워크포워드,
+  C브로커 상태머신/대조·D별도승인 실거래는 미완료다. 다음①는 운영의 최소 비밀없는 상태
+  출력 대조와 비밀없는 브로커 모의계약을 우선한다.②는 새 순수타입 경로를 재사용하고
+  실제 선정/출처/자료 근거를 유지한다. 기존① 예약 조회만 하며 타예약 미변경,
+  사용자 새 결정은 없고 사용량/모델High 고정은 미확인이다. main 병합은 서버 배포가 아니다.
+
 ## 최신 실행 — ① Paper 별도 프로세스 재시작·합성 복원 회귀
 
 - Public mainc49a139/최신AGENTS·STATUS·열린PR0/기존 선점63/57/70과 main CI45005762403

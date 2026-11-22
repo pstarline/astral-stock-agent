@@ -373,9 +373,11 @@ held다. 최적화/선정·자동 fold/워크포워드는 없다. 가설 해시�
 사전등록·실제 미관측/선정 이력·독립성의 인증은 아니다. 성공 계산도 insufficient/승인false다.
 공개 근거/권리·판본/관측은 이 가설 해시와 별도로 대응시켜야 하며 origin=self는 로컬 계산
 경로일 뿐 공개 출처를 자체 출처로 재분류하지 않는다. 자연어 근거의 자동 spec 변환은 없다.
-기존 research_trend→research_contracts의 순수 공통 ExecutionParity/과거 형식 해석 간접 import는
-남아 있다. 신규 가설 경로에서 외부 조건 비교/서비스 호출은 하지 않으나 물리 분리 완료는 아니다.
-공유 타입 분리는 운영과의 회귀를 확인할 별도 저위험 작업이다. 실제 표본외/성과·Paper 승격/
+execution_contracts에 순수 ExecutionContract/Parity·LOCAL_DAILY_EXECUTION과5필드 비교를
+분리했다. research_trend는 이를 직접 import하며 기존 research_contracts는 역사 해석과
+같은 객체의 호환re-export만 유지한다. 독립 연구/Paper7개 진입점의 새 프로세스 import에서
+역사 해석/서비스 모듈 로드를 차단한 회귀를 확인한다. 비교 규칙/기본 승인false는 그대로이며
+전체 구식 CLI/다른 역사 실행 구현의 물리 제거까지 완료한 것은 아니다. 실제 표본외/성과·Paper 승격/
 운영/주문·자료 수집/저장/전송 연결은 없다. 원 입력/선정·동결 문맥은 비공개로 보존한다.
 
 ## 공통 독립 검증 실행기와 역할별 개발 재개

@@ -9,7 +9,7 @@ from decimal import Context, Decimal, localcontext
 from zoneinfo import ZoneInfo
 
 from .research_data import DailyHistory, ResearchDataError
-from .research_contracts import ExecutionParity, require_matching_execution
+from .execution_contracts import ExecutionParity, require_matching_execution
 from .research_execution import PriceOnlySimulation, _decimal, simulate_next_open
 from .research_sessions import NY_SESSION_DATE, UTC_SESSION_DATE, require_daily_session_coverage
 
