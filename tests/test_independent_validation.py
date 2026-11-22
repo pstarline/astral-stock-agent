@@ -8,11 +8,9 @@ import json
 import pytest
 
 import astral_stock_agent.independent_validation as validation
-from astral_stock_agent.public_discovery import _project
 from astral_stock_agent.research_data import ResearchDataError
 from test_independent_signals import inputs as sma_inputs
 from test_independent_reversal import inputs as reversal_inputs
-from test_public_discovery import evidence
 
 
 NOW = datetime(2026, 11, 21, tzinfo=timezone.utc)
@@ -31,10 +29,12 @@ def checks(result):
 
 
 def source(*, timing='next_session_open', timeframe='1d', assets=None):
-    # Synthetic compatible declaration, NOT an observed official capability.
-    summary, detail = evidence(assets=assets)
-    detail['strategy']['payload']['engine'].update(bar_size=timeframe, fill_price_mode=timing)
-    return _project(summary, detail, NOW)
+    # Minimal synthetic historical handoff, not a provider projection or capability.
+    # Unknown hashes stay unknown; this is not an executable public-source adapter.
+    return dict(schema='public_strategy_review_candidate_v1', origin='public',
+                assets=['SPY'] if assets is None else list(assets), timeframe=timeframe,
+                fill_price_mode=timing, definition_sha256=None, evidence_sha256=None,
+                needs_source_refresh=False)
 
 
 @pytest.mark.parametrize('make,expected', [(sma_inputs, '-1'), (reversal_inputs, '2')])
@@ -119,15 +119,6 @@ def test_missing_public_execution_does_not_inherit_local_defaults(field):
     c = source(); c[field] = None
     r = run(origin='public', public_candidate=c)
     assert r.status == 'insufficient' and not r.scenarios
-
-
-def test_current_public_handoff_is_consumed_unchanged_and_not_source_code_executed():
-    summary, detail = evidence()
-    c = _project(summary, detail, NOW)
-    before = deepcopy(c)
-    r = run(origin='public', public_candidate=c)
-    assert r.status == 'held' and c == before
-    assert checks(r)['source_execution'].reason == 'source_daily_next_open_conditions_differ'
 
 
 @pytest.mark.parametrize('origin', ['self', 'public'])
@@ -310,3 +301,30 @@ def test_offline_runner_has_no_file_network_ledger_or_delivery_authority(monkeyp
     monkeypatch.setattr(Telegram, 'send', forbidden)
     result = run(stress_costs=dict(commission_bps='5', slippage_bps='5'))
     assert all(c.status == 'passed' for c in result.checks)
+
+def test_common_validation_fixture_import_does_not_require_retired_discovery():
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+    root = Path(__file__).resolve().parents[1]
+    script = '''
+import importlib.abc, sys
+class Guard(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in ('astral_stock_agent.public_discovery', 'test_public_discovery'):
+            raise AssertionError('retired discovery dependency')
+sys.meta_path.insert(0, Guard())
+import test_independent_validation as tests
+candidate = tests.source()
+assert candidate['definition_sha256'] is candidate['evidence_sha256'] is None
+assert tests.source(assets=[])['assets'] == []
+assert 'astral_stock_agent.public_discovery' not in sys.modules
+assert 'test_public_discovery' not in sys.modules
+'''
+    result = subprocess.run([sys.executable, '-c', script],
+        env=dict(PATH=os.defpath, PYTHONPATH=os.pathsep.join(
+            (str(root/'src'), str(root/'tests'))), PYTHONDONTWRITEBYTECODE='1'),
+        capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, 'common validation fixture imports retired discovery'
+    assert result.stdout == result.stderr == ''
