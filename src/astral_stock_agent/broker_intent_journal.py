@@ -9,8 +9,9 @@ reconciliation and never authorizes submission, including a newly created one.
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal, DecimalException
 import json
+import re
 
-from .broker_order_state import OrderBook, OrderIntent, _identifier
+from .broker_order_state import OrderBook, OrderIntent, OrderRecord, _identifier
 from .independent_ledger import IndependentPaperLedger, IndependentLedgerError, _canonical, _unique
 
 
@@ -135,5 +136,51 @@ class PrivateIntentJournal:
             if verified != intent:
                 raise ValueError
             return IntentReceipt(verified, created)
+        except (OSError, ValueError, TypeError, DecimalException):
+            raise IntentJournalError(ERROR) from None
+
+    def _inventory_names(self):
+        self._check_scope()
+        names = []
+        for path in self._storage.directory.iterdir():
+            if path.name == self._pin.name:
+                continue
+            if not re.fullmatch(r'[0-9a-f]{64}\.json', path.name) or len(names) >= 1024:
+                raise ValueError
+            names.append(path.name)
+        # Repeated names can indicate a directory changed during enumeration.
+        if len(set(names)) != len(names):
+            raise ValueError
+        return tuple(sorted(names))
+
+    def load_unreconciled_book(self) -> OrderBook:
+        """Read-only bounded two-pass reconstruction; NOT an atomic snapshot.
+
+        Intents contain no broker outcomes. Every record is therefore unknown,
+        never reserved/accepted/filled. Any other-symbol unknown also blocks the
+        existing preflight. Writers must be excluded externally for a consistent
+        operational snapshot; a post-scan append cannot be ruled out here.
+        Zero filled_quantity is only an unknown lower bound, not proof of no
+        fills. Even an empty directory cannot prove historical completeness.
+        """
+        try:
+            names = self._inventory_names()
+            original, records = {}, []
+            for name in names:
+                path = self._storage.directory / name
+                raw = self._storage._read(path)
+                intent = _decode(raw)
+                self._check_intent(intent, intent.client_order_id)
+                if self._storage._path('broker-intent-v1:' + intent.client_order_id).name != name:
+                    raise ValueError
+                original[name] = raw
+                records.append(OrderRecord(intent, status='unknown'))
+            if self._inventory_names() != names:
+                raise ValueError
+            for name in names:
+                if self._storage._read(self._storage.directory / name) != original[name]:
+                    raise ValueError
+            self._check_scope()
+            return OrderBook(self._mode, self._scope, tuple(records))
         except (OSError, ValueError, TypeError, DecimalException):
             raise IntentJournalError(ERROR) from None

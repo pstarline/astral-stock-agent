@@ -42,6 +42,24 @@ reconciliation_required=true/order_submission_approved=false다. 원문/객체/a
 멱등 보장은 없다. 새 키 기록은 거래 허가가 아니며 기존 불명확 상태는 후속 전체 계좌 게이트가
 차단해야 한다. 실제 Worker/연구/Paper/Outbox/API·계좌·전송/주문에는 연결하지 않는다.
 
+### 저장된 의도의 보수적 읽기 복원
+
+`load_unreconciled_book`은 동일 mode/scope저장소의 최대1024개 의도 파일을 두 번 읽는다.
+허용된 파일명/핀·키 해시 대응/closed JSON·private 읽기 검사를 재사용하고 이름 목록과
+본문 바이트가 달라지면 오류로 중단한다. 외부/부분 파일·다른범위/잘못된키·링크/권한 오류도
+자동 수리·삭제하지 않는다. 기록 메서드나 기존 파일/본문을 변경하는 호출은 없다.
+
+관측된 모든 의도는 broker_order_id=None/status=unknown으로 OrderBook에 복원한다.
+관측된 체결 정보가 없으므로 filled_quantity=0은 알려진 최소치이며 실제 체결0의 증명이
+아니다. 기존 preflight는 다른 종목 unknown도 계좌 범위에서 차단한다. 원장/백테스트 손익이나
+실제 보고에 체결값으로 전용하지 않는다. 반환 book의 주문 승인 속성은 항상 false다.
+
+두 번 읽기의 일치는 원자적 snapshot·전역 계좌 잠금·writer 배타가 아니며 마지막 열거 뒤의
+추가 파일이나 두 열거 전에 사라진 과거 기록을 인증할 수 없다. 빈 book도 과거 완전성/
+무주문·무체결/계좌 대조 완료가 아니다. 일관된 운영 snapshot에는 외부 writer 배타와
+별도 실제 브로커/계좌 대조·모든 관측/체결 영속이 필요하다. 현재 Worker/API/실제 주문과
+연결하지 않는다. 이후 새 키 기록을 허가하거나 unknown을 자동 해소하는 기능이 아니다.
+
 ## 비연결 안전 프리플라이트 — 운영 권한 없음
 
 `broker_order_preflight`는 기존 OrderBook/OrderIntent를 읽는 순수 진단이다. 명시된
