@@ -40,6 +40,9 @@ docs/NCLOUD.md와 deploy/ncloud의 독립 Paper 경로를 재사용한다. initi
 
 ## 협업·개발 순서
 
+research_holdout의 동결 시각/가설 해시는 호출자 선언이며 실제 선정 이력·사전등록/표본외
+독립성 인증이 아니다. 평가 계좌의 flat 재설정을 연속 Paper 실적으로 표시하지 않는다.
+
 news_comparison은 공급된 두 NewsBatch의 메타데이터 진단만 한다. 빈 결과/같은 해시·출처
 집합을 전체 수집/원문 무변경·연구 적격성으로 취급하지 않고 원 입력/평가 문맥을 비공개 보존한다.
 
