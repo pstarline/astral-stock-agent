@@ -89,6 +89,39 @@ class ObservationTests(unittest.TestCase):
         result = compare_fed_observations(future, future)
         self.assertEqual(result.status, 'comparison_unavailable')
 
+    def test_future_receipts_block_empty_and_nonempty_comparisons(self):
+        empty = b'<rss version="2.0"><channel/></rss>'
+        for raw in (empty, RAW):
+            for changed in (False, True):
+                supplied = raw.replace(b'<channel', b'<channel ', 1) if changed else raw
+                old = observe(raw)
+                future = observe(supplied, received_at=NOW+timedelta(hours=1))
+                for previous, current, label in (
+                        (old, future, 'current'),
+                        (future, observe(supplied, received_at=NOW+timedelta(hours=2),
+                                         as_of=NOW+timedelta(hours=2)), 'previous')):
+                    with self.subTest(empty=raw == empty, changed=changed, label=label):
+                        result = compare_fed_observations(previous, current)
+                        self.assertEqual(result.status, 'comparison_unavailable')
+                        self.assertIsNone(result.response_changed)
+                        self.assertEqual(result.metadata.status, 'unavailable')
+                        self.assertIn(label+'_receipt_after_as_of', result.metadata.reasons)
+                        self.assertEqual(result.metadata.changes, ())
+                        self.assertFalse(result.correction_verified)
+                        self.assertFalse(result.research_eligibility_evaluated)
+                        self.assertFalse(result.deployment_approved)
+
+    def test_receipt_at_cutoff_accepts_empty_and_nonempty_utc_equivalents(self):
+        for raw in (b'<rss version="2.0"><channel/></rss>', RAW):
+            for offset in (0, 9, -5):
+                with self.subTest(empty=raw != RAW, offset=offset):
+                    stamp = NOW.astimezone(timezone(timedelta(hours=offset)))
+                    value = observe(raw, received_at=stamp, as_of=NOW)
+                    result = compare_fed_observations(value, value)
+                    self.assertEqual(result.status, 'same_supplied_response_and_metadata')
+                    self.assertFalse(result.response_changed)
+                    self.assertEqual(result.metadata.reasons, ())
+
     def test_new_evaluation_can_be_stale_even_when_raw_and_metadata_match(self):
         old, new = observe(), observe(as_of=NOW+timedelta(hours=3))
         self.assertIn('stale', new.batch.assessments[0].reasons)

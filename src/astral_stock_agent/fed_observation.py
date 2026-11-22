@@ -4,7 +4,7 @@ The fixed scope identifies only the input expected by the existing parser. It
 is not authenticated provider provenance or permission to collect. Caller must
 supply genuine successful-receipt times; this module cannot attest those times.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 import hashlib
 import re
@@ -116,12 +116,20 @@ def compare_fed_observations(previous, current):
     Same bytes do not prove unchanged source articles. Dates/coverage/completeness
     and earliest supplied observation keep all existing comparison limitations.
     This is not durable first-seen history, a storage/collection contract, or a
-    strategy input. No input is mutated and no partial result becomes readiness.
+    strategy input. Receipts after their own analysis cutoff are unavailable even
+    for empty feeds. No input is mutated and no partial result becomes readiness.
     """
     try:
         if _validate(previous) > _validate(current):
             raise ValueError
         metadata = compare_news_batches(previous.batch, current.batch)
+        future_receipts = tuple(
+            label + '_receipt_after_as_of'
+            for label, observation in (('previous', previous), ('current', current))
+            if _stamp(observation.received_at) > _stamp(observation.batch.as_of))
+        if future_receipts:
+            metadata = replace(metadata, status='unavailable',
+                               reasons=metadata.reasons + future_receipts, changes=())
         if metadata.status == 'unavailable':
             return FedObservationComparison('comparison_unavailable', None, metadata)
         response_changed = previous.response_sha256 != current.response_sha256
