@@ -10,6 +10,8 @@
 과거 플랫폼의 순수 정규화/기록 읽기 코드는 호환 목적 보존물이며 신규 연구 경로가 아니다.
 독립 Paper/연구는 execution_contracts의 순수 타입/조건 비교를 직접 사용한다. 과거
 research_contracts 해석은 호환 re-export로만 남기며 독립 경로에서 import하지 않는다.
+공통 검증 fixture/합성 runner는 구식 CLI·과거 서비스/탐색 import 없이 검사한다. 실제 CLI
+안전 검사는 필요한 테스트 내부에서만 import하고 별도 역사 호환 검사는 그대로 보존한다.
 research_comparison은 명시 로컬 규칙2개만 같은 입력/기간/비용으로 비교한다. 과거 공개 인계는
 사용하지 않으며 산술 차이·해시가 선정/출처 동등성·표본외/forward 검증이나 운영 승인이 아니다.
 retired_platform.block은 외부 수집·저작·상태보고/탐색 진입점과 구식 CLI --send를
