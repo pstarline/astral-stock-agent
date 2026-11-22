@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import select
 import subprocess
 import sys
 import threading
@@ -244,7 +245,13 @@ def test_inventory_detects_between_pass_changes_and_preserves_traces(journal,mon
         nonlocal calls
         calls+=1
         if calls==2:
-            if change=='append':store.record(intent(client_order_id='new-key'))
+            if change=='append':
+                # Simulate a NON-cooperating filesystem writer. Public record()
+                # is now excluded for the duration of the inventory read.
+                value=json.loads(intent_path(path).read_bytes())
+                value['intent']['client_order_id']='new-key'
+                name=hashlib.sha256(b'broker-intent-v1:new-key').hexdigest()+'.json'
+                added=path/name;added.write_bytes(json.dumps(value).encode());added.chmod(0o600)
             elif change=='remove':intent_path(path).unlink()  # Synthetic race only.
             else:
                 value=json.loads(intent_path(path).read_bytes());value['intent']['quantity']=2
@@ -263,3 +270,83 @@ def test_inventory_bound_is_checked_before_reading_an_unbounded_directory(journa
         p=path/(f'{n:064x}'+'.json');p.write_bytes(b'partial');p.chmod(0o600)
     with pytest.raises(IntentJournalError):store.load_unreconciled_book()
     assert len(list(path.iterdir()))==1026
+
+
+def test_same_pin_excludes_all_public_methods_without_wait_or_mutation(journal):
+    store,path=journal;store.record(intent());sibling=open_journal(path)
+    before={p.name:p.read_bytes() for p in path.iterdir()}
+    with store._exclusive_scope():
+        for contender in (store,sibling):
+            for action in (lambda:contender.read('synthetic-key'),
+                           lambda:contender.record(intent(client_order_id='new-key')),
+                           contender.load_unreconciled_book):
+                with pytest.raises(IntentJournalError) as exc:action()
+                assert str(exc.value)==ERROR
+    assert {p.name:p.read_bytes() for p in path.iterdir()}==before
+    assert sibling.load_unreconciled_book().reconciliation_required
+
+
+def test_exception_releases_advisory_lock_without_erasing_records(journal):
+    store,path=journal;store.record(intent())
+    with pytest.raises(RuntimeError):
+        with store._exclusive_scope():raise RuntimeError('synthetic failure')
+    receipt=open_journal(path).record(intent())
+    assert not receipt.created and receipt.reconciliation_required
+
+
+def test_distinct_journal_is_not_a_global_account_lock(journal,tmp_path):
+    store,_=journal;other_path=tmp_path/'different-scope';other_path.mkdir(mode=0o700)
+    other=open_journal(other_path,scope_digest='b'*64,initialize=True)
+    with store._exclusive_scope():
+        receipt=other.record(intent(scope_digest='b'*64))
+        assert receipt.created and not receipt.order_submission_approved
+
+
+def test_pin_replacement_during_locked_operation_is_detected(journal,tmp_path,monkeypatch):
+    store,path=journal;raw=store._pin.read_bytes()
+    replacement=tmp_path/'replacement';replacement.write_bytes(raw);replacement.chmod(0o600)
+    original=store._storage._write_once
+    def replace_pin_after_write(*args,**kwargs):
+        result=original(*args,**kwargs)
+        os.replace(replacement,store._pin)  # Non-cooperating synthetic mutation.
+        return result
+    monkeypatch.setattr(store._storage,'_write_once',replace_pin_after_write)
+    with pytest.raises(IntentJournalError,match=ERROR):store.record(intent())
+    assert store._pin.read_bytes()==raw and intent_path(path).is_file()
+    assert open_journal(path).read('synthetic-key').reconciliation_required
+
+
+@pytest.mark.parametrize('crash',[False,True])
+def test_other_process_contention_and_normal_or_crash_release_preserve_unknown(journal,crash):
+    store,path=journal;store.record(intent());before={p.name:p.read_bytes() for p in path.iterdir()}
+    script='''
+import os, sys
+from astral_stock_agent.broker_intent_journal import PrivateIntentJournal
+def deny(event,args):
+    if event.startswith('socket.'):raise AssertionError('network forbidden')
+sys.addaudithook(deny)
+j=PrivateIntentJournal(sys.argv[1],mode='paper',scope_digest='a'*64)
+with j._exclusive_scope():
+    print('locked',flush=True)
+    sys.stdin.buffer.read(1)
+    if sys.argv[2]=='crash':os._exit(73)
+'''
+    root=Path(__file__).resolve().parents[1]
+    child=subprocess.Popen([sys.executable,'-c',script,str(path),'crash' if crash else 'normal'],
+        stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,
+        env=dict(PATH=os.defpath,PYTHONPATH=str(root/'src'),PYTHONDONTWRITEBYTECODE='1'))
+    try:
+        ready,_,_=select.select([child.stdout],[],[],20)
+        assert ready and child.stdout.readline()=='locked\n'
+        for action in (lambda:store.record(intent()),lambda:store.read('synthetic-key'),
+                       store.load_unreconciled_book):
+            with pytest.raises(IntentJournalError):action()
+        out,err=child.communicate(input='x',timeout=20)
+        assert child.returncode==(73 if crash else 0) and out==err==''
+    finally:
+        if child.poll() is None:child.kill()
+        child.wait(timeout=20)
+    receipt=open_journal(path).record(intent())
+    assert not receipt.created and receipt.reconciliation_required and not receipt.order_submission_approved
+    assert open_journal(path).load_unreconciled_book().reconciliation_required
+    assert {p.name:p.read_bytes() for p in path.iterdir()}==before

@@ -6,9 +6,13 @@ Per-key O_EXCL prevents competing replacements; it does not lock account-wide
 exposure or prove transmission/receipt/fills. Every receipt requires explicit
 reconciliation and never authorizes submission, including a newly created one.
 """
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal, DecimalException
+import fcntl
+from functools import wraps
 import json
+import os
 import re
 
 from .broker_order_state import OrderBook, OrderIntent, OrderRecord, _identifier
@@ -21,6 +25,17 @@ MAX_INTENT_BYTES = 4096
 
 class IntentJournalError(ValueError):
     pass
+
+
+def _locked(method):
+    @wraps(method)
+    def guarded(self, *args, **kwargs):
+        try:
+            with self._exclusive_scope():
+                return method(self, *args, **kwargs)
+        except (OSError, ValueError, TypeError, DecimalException):
+            raise IntentJournalError(ERROR) from None
+    return guarded
 
 
 @dataclass(frozen=True)
@@ -99,12 +114,42 @@ class PrivateIntentJournal:
         if self._storage._read(self._pin) != self._pin_bytes:
             raise ValueError
 
+    @contextmanager
+    def _exclusive_scope(self):
+        """Cooperating local processes only; never unlink/replace the lock inode.
+
+        Nonblocking contention is a fail-closed result, not a retry instruction.
+        All public read/record/inventory methods use this same immutable pin.
+        Direct filesystem writers and different journals do not participate.
+        """
+        fd, acquired = None, False
+        try:
+            self._check_scope()  # Includes default public-CI and private-file checks.
+            fd = os.open(self._pin, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            acquired = True
+            def verify():
+                self._check_scope()
+                opened, current = os.fstat(fd), self._pin.lstat()
+                if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+                    raise ValueError
+            verify()
+            yield
+            verify()
+        finally:
+            if fd is not None:
+                try:
+                    if acquired:
+                        fcntl.flock(fd, fcntl.LOCK_UN)
+                finally:
+                    os.close(fd)
+
     def _check_intent(self, intent, key):
         if ((intent.mode, intent.scope_digest) != (self._mode, self._scope)
                 or intent.client_order_id != key):
             raise ValueError
 
-    def read(self, client_order_id) -> IntentReceipt:
+    def _read_receipt(self, client_order_id) -> IntentReceipt:
         try:
             if not _identifier(client_order_id):
                 raise ValueError
@@ -116,6 +161,11 @@ class PrivateIntentJournal:
         except (OSError, ValueError, TypeError, DecimalException):
             raise IntentJournalError(ERROR) from None
 
+    @_locked
+    def read(self, client_order_id) -> IntentReceipt:
+        return self._read_receipt(client_order_id)
+
+    @_locked
     def record(self, intent: OrderIntent) -> IntentReceipt:
         try:
             raw = _encode(intent)
@@ -127,12 +177,12 @@ class PrivateIntentJournal:
             except IndependentLedgerError:
                 # Same numerical price with a different decimal spelling is a
                 # no-op too. Preserve the FIRST bytes; never rewrite the file.
-                existing = self.read(intent.client_order_id).intent
+                existing = self._read_receipt(intent.client_order_id).intent
                 if existing != intent:
                     raise ValueError
                 self._storage._sync(path)
                 created = False
-            verified = self.read(intent.client_order_id).intent
+            verified = self._read_receipt(intent.client_order_id).intent
             if verified != intent:
                 raise ValueError
             return IntentReceipt(verified, created)
@@ -153,13 +203,15 @@ class PrivateIntentJournal:
             raise ValueError
         return tuple(sorted(names))
 
+    @_locked
     def load_unreconciled_book(self) -> OrderBook:
         """Read-only bounded two-pass reconstruction; NOT an atomic snapshot.
 
         Intents contain no broker outcomes. Every record is therefore unknown,
         never reserved/accepted/filled. Any other-symbol unknown also blocks the
-        existing preflight. Writers must be excluded externally for a consistent
-        operational snapshot; a post-scan append cannot be ruled out here.
+        existing preflight. This call excludes cooperating journal methods only;
+        direct filesystem writers still require external exclusion. The returned
+        book is not fenced against an append AFTER this method releases its lock.
         Zero filled_quantity is only an unknown lower bound, not proof of no
         fills. Even an empty directory cannot prove historical completeness.
         """
