@@ -350,3 +350,108 @@ with j._exclusive_scope():
     assert not receipt.created and receipt.reconciliation_required and not receipt.order_submission_approved
     assert open_journal(path).load_unreconciled_book().reconciliation_required
     assert {p.name:p.read_bytes() for p in path.iterdir()}==before
+
+
+@pytest.mark.parametrize('mode',['paper','live'])
+def test_checked_record_first_intent_is_diagnostic_only_then_unknown_blocks(journal,tmp_path,mode):
+    from test_broker_order_preflight import context,limits
+    store,path=journal
+    if mode=='live':
+        path=tmp_path/'synthetic-live';path.mkdir(mode=0o700)
+        store=open_journal(path,mode=mode,initialize=True)
+    item=intent(mode=mode);ctx=context(mode=mode)
+    result=store.preflight_and_record(item,ctx,limits())
+    assert result.assessment.checks_passed and result.receipt.created
+    assert result.receipt.reconciliation_required and not result.order_submission_approved
+    assert not result.receipt.order_submission_approved
+    before={p.name:p.read_bytes() for p in path.iterdir()}
+    retry=store.preflight_and_record(item,ctx,limits())
+    assert retry.receipt is None and 'intent_already_recorded' in retry.assessment.reasons
+    other=store.preflight_and_record(replace(item,client_order_id='different'),ctx,limits())
+    assert other.receipt is None and other.assessment.reasons==('order_unknown',)
+    assert {p.name:p.read_bytes() for p in path.iterdir()}==before
+
+
+@pytest.mark.parametrize('changes,reason',[
+    ({'emergency_stop':True},'emergency_stop'),
+    ({'operating_approved':False},'approval_missing'),
+    ({'account_reconciled':False},'account_unreconciled'),
+    ({'regular_session_verified':False},'session_unverified'),
+    ({'daily_loss_stop':True},'daily_loss_stop'),
+    ({'current_equity':Decimal('9950')},'daily_loss_limit'),
+    ({'scope_digest':'b'*64},'scope_mismatch'),
+])
+def test_failed_checked_diagnostics_do_not_write(journal,changes,reason):
+    from test_broker_order_preflight import context,limits
+    store,path=journal;before={p.name:p.read_bytes() for p in path.iterdir()}
+    result=store.preflight_and_record(intent(),context(**changes),limits())
+    assert reason in result.assessment.reasons and result.receipt is None
+    assert not result.order_submission_approved
+    assert {p.name:p.read_bytes() for p in path.iterdir()}==before
+
+
+def test_checked_missing_limits_or_bad_intent_never_default_to_write(journal):
+    from test_broker_order_preflight import context,limits
+    store,path=journal
+    result=store.preflight_and_record(intent(),context())
+    assert result.assessment.reasons==('limits_unset',) and result.receipt is None
+    result=store.preflight_and_record(None,context(),limits())
+    assert result.assessment.reasons==('invalid_input',) and result.receipt is None
+    assert len(list(path.iterdir()))==1
+
+
+def test_checked_lock_spans_assessment_and_record_without_releasing_in_between(journal,monkeypatch):
+    from test_broker_order_preflight import context,limits
+    import astral_stock_agent.broker_intent_journal as module
+    store,path=journal;sibling=open_journal(path);original=module.assess_order_preflight;calls=[]
+    def check_while_locked(*args,**kwargs):
+        assessment=original(*args,**kwargs)
+        assert assessment.checks_passed
+        with pytest.raises(IntentJournalError):sibling.record(intent(client_order_id='competing'))
+        calls.append(True)
+        return assessment
+    monkeypatch.setattr(module,'assess_order_preflight',check_while_locked)
+    result=store.preflight_and_record(intent(),context(),limits())
+    assert calls==[True] and result.receipt.created
+    assert len(list(path.iterdir()))==2
+
+
+def test_competing_checked_keys_cannot_both_prepare_on_same_empty_snapshot(journal):
+    from test_broker_order_preflight import context,limits
+    _,path=journal;barrier=threading.Barrier(2)
+    def attempt(key):
+        store=open_journal(path);barrier.wait()
+        try:
+            result=store.preflight_and_record(intent(client_order_id=key),context(),limits())
+            return result.receipt is not None and result.receipt.created
+        except IntentJournalError:return False
+    with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(attempt,('one','two')))
+    assert sum(results)==1 and len(list(path.iterdir()))==2
+    assert open_journal(path).load_unreconciled_book().reconciliation_required
+
+
+def test_checked_sync_failure_preserves_trace_and_blocks_later_key(journal,monkeypatch):
+    from test_broker_order_preflight import context,limits
+    store,path=journal
+    def fail(path):raise OSError('synthetic private marker')
+    monkeypatch.setattr(store._storage,'_sync',fail)
+    with pytest.raises(IntentJournalError,match=ERROR):
+        store.preflight_and_record(intent(),context(),limits())
+    assert intent_path(path).is_file()
+    result=open_journal(path).preflight_and_record(intent(client_order_id='other'),context(),limits())
+    assert result.receipt is None and result.assessment.reasons==('order_unknown',)
+
+
+def test_unexpected_preexisting_receipt_after_clean_check_is_not_success(journal,monkeypatch):
+    from test_broker_order_preflight import context,limits
+    from astral_stock_agent.broker_intent_journal import _encode
+    store,path=journal;original=store._record_receipt
+    def noncooperating_writer(item):
+        # Direct file injection bypasses advisory locking; it must not become a
+        # successful preparation if record() finds an existing same-key file.
+        p=intent_path(path);p.write_bytes(_encode(item));p.chmod(0o600)
+        return original(item)
+    monkeypatch.setattr(store,'_record_receipt',noncooperating_writer)
+    with pytest.raises(IntentJournalError,match=ERROR):
+        store.preflight_and_record(intent(),context(),limits())
+    assert open_journal(path).read('synthetic-key').reconciliation_required
