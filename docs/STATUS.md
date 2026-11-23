@@ -1,5 +1,43 @@
 # 개발 상태 — 2026-11-23 (한국 시간)
 
+## 최신 실행 — ① 폐기 외부 탐색 본문 제거 PR92 통합 검토
+
+- Public maineb45e09/최신 AGENTS·STATUS·열린PR92·③ 선점/② 소비기준과
+  mainCI45075620317 success를 확인했다. PR92 headfbcafd4의 CI45089464328 success는
+  사전 근거이며 문서통합 후 최종head를 별도로 검사한다. PR댓글에① 검토·공통문서 범위와
+  work/role1-review-collector-removal-20261123을 선점하고 main/head·겹침을 재확인한다.
+  댓글은 잠금이 아니다. 새 서버 출력은 없어 실제 A 검증은 보류하고 검토 대기 PR을 우선했다.
+- public_discovery.run_public_discovery의 이미 차단된 뒤 외부 search/detail·callback/
+  timeout·주간 claim·새 attempt/complete·handoff 작성 본문과 전용 imports를 제거했다.
+  기존 async 시그니처·무조건 부작용 전 tombstone은 유지한다. 운영 flag/CI/clock/콜백으로
+  해제되지 않고 새 provider/수집기·재전송을 추가하지 않았다.③ 제품 코드는① 추가 수정 없이
+  검토했고 같은 코드 PR에 공통 문서만 통합한다.
+- ① 별도 AST 대조로 해당 진입점 외 제품 함수/클래스17개·기존 evidence helper 본문과
+  진입점 args의 동일성을 확인했다. _project/순수 해석·DiscoveryBatch·_journal/
+  _check_complete/read_public_candidates·저장 형식은 보존했다. 과거 URL/provider
+  문자열은 순수 호환 해석에 남으며 신규 호출·출처 인증이 아니다. 다른 외부 경계/CLI의
+  역사 코드 전체가 제거된 것은 아니다.
+- 기존 public_discovery 수집 우회 fixture·Wire/run helper는 종료했다. 수집 주기/예산/
+  timeout·새 수집 경쟁/중단 기능의 검사는 더 이상 지원하는 기능으로 주장하지 않는다.
+  순수 project 진단은 직접 합성 입력으로 유지하고 reader는 명시 합성 attempt/complete
+  기록으로 검사한다. 승인false/None·비용/범위/봉·wrapper 충돌/거래 단위/해시·비신뢰
+  텍스트, 원문 불변 재시작/병렬 읽기·쓰기금지, 부분/손상/잘못된ordinal/시간·권한/링크/
+  CI/한도 거부를 확인했다. 제품/테스트에 대체 수집기를 복제하지 않았다.
+- 별도 default retired·legacy projection·공통 validator/import guard/CLI 검사는 변경하지
+  않고 실행했다. 관련206개·전체2022개/133subtests 통과(기존 pandas 경고4개), compileall/
+  공백·5변경파일의 제한 민감 패턴 검사를 확인한다. 로컬3.12.14와 원격표준Ubuntu/3.11
+  단일CI는 구분하며 최종head·필수CI/보호규칙/충돌 성공 전 병합하지 않는다. 오류·실패흔적/
+  권한/부작용·병렬 호출/읽기·정보노출 별도 자체검토이며 외부 전체 독립 리뷰 미수행이다.
+  ③의 준비/전환 스크립트 실패·해결 이력은 PR본문에 기록됐고 현재 회귀 결과와 구분한다.
+- 이번① 결정(이슈17)은 단계적 물리 제거 범위/회귀 책임을③에 조율한 결과다. 종료한 검사와
+  보존 책임 대응은 PR92 본문에 기록했고 문서전용PR·skip/xfail/CI 약화·보호 우회가 없다.
+  과거 모듈의 다른 합성 fixture는 남고 기존 저장 상태를 삭제/개명/마이그레이션하지 않는다.
+- 서버/이미지·전략/가격/원장/Outbox/control·보고/해시·계좌/인증·주문/전송·실제수집/
+  운영 설정 접근/변경없음. A 실제 체결·지속/중복·재부팅/복구,B 실제후보/표본외·워크포워드,
+  C 실제 관측/대조·전체브로커,D 승인 실거래는 미완료다. 다음①는 실제 서버 출력 대조·
+  대기PR 검토 우선이며③/②는 구체 피드백·보존 역사 경계 소비 검토를 인계한다. 새 사용자
+  결정없음·잔여사용량/모델High 고정미확인·기존① 예약조회만/타예약미변경. 병합은 배포가 아니다.
+
 ## 최신 실행 — ① 뉴스 관측 전달 codec PR91 통합 검토
 
 - Public mainaff0f5d/AGENTS·STATUS·열린PR91·④ 선점/② 소비회신과 기존 mainCI45060334506
