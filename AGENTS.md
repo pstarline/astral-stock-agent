@@ -14,6 +14,10 @@ research_contracts 해석은 호환 re-export로만 남기며 독립 경로에�
 안전 검사는 필요한 테스트 내부에서만 import하고 별도 역사 호환 검사는 그대로 보존한다.
 research_comparison은 명시 로컬 규칙2개만 같은 입력/기간/비용으로 비교한다. 과거 공개 인계는
 사용하지 않으며 산술 차이·해시가 선정/출처 동등성·표본외/forward 검증이나 운영 승인이 아니다.
+research_strict_sma는 별도 SPY/SMA15 연구 가설이다. > 진입/< 청산·동률 목표유지를
+동일15봉 else-flat과 합성 비교할 뿐 원본 ORCL 예제 재현/권리·실제성과 인증이 아니다.
+고정 가상10000USD/최대1주/비용각5bp는 연구 문맥이며 실제 자금/위험 한도가 아니다.
+기존 SMA_RULE/RUNNERS·Paper/운영핀은 변경하지 않고 모든 결과는 insufficient/승인false다.
 retired_platform.block은 외부 수집·저작·상태보고/탐색 진입점과 구식 CLI --send를
 부작용 전에 무조건 차단한다. 운영 플래그/인증/CI 예외로 해제하지 않는다.
 public_discovery의 차단 뒤 외부 검색/조회·새 attempt/handoff 작성 본문은 제거했다.
