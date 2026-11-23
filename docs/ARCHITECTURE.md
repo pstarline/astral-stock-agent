@@ -25,6 +25,27 @@ D: 별도 명시 승인 후만 자격증명/계좌 연결·자금·일일 손실
 사용 중인 증권사 이름으로 API 지원을 추정하지 않는다. 공식 지원 불명확 시 비밀 없는 모의
 계약/테스트만 가능하며 연결하지 않는다. 전략 승격 권한과 주문 권한은 분리한다.
 
+## 동률 보유 strict SMA15 — 별도 고정 연구 가설
+
+`research_strict_sma`는 SPY/15봉 당일포함 SMA의 > 진입/< 청산·동률 직전목표유지를
+기존 같은15봉 >else-flat과 같은 기간/가격/비용으로 두 번만 계산한다. 최초/warmup은 flat,
+목표0/1주, 가상10000USD·수수료/슬리피지각5bp로 고정하며 기존 CloseDecisions·Decimal/
+거래일 완전성·다음 시가 회계를 재사용한다. 마지막 pending delta를 체결로 만들지 않는다.
+16..2048관측·synthetic/historical 선언만 받으며 최적화/선정·기존 runner 등록은 없다.
+
+③ 이슈17 조사7064920991의 Backtrader quickstart09 고정판본
+`e20cea18b88e1693b65e408f8778cc076ab21a67`에서 관측한 엄격 조건 해석을 참고했다.
+공식 원문 위치는 https://www.backtrader.com/docu/quickstart/quickstart/#adding-an-indicator 이다.
+원본 ORCL/10주/수수료0 예제와 다른 SPY 고정 자체 가설이며 원본 코드/CSV 복사·실행이나
+재수집은 없다. 해석 대조는 실제 원본 주문/체결·수량/거절·pending 처리 전체 동등성/이용권
+인증이 아니다. source/선정 이력·표본외/WFO·실제 forward 성과는 미검증으로 남는다.
+
+입력 지문은 정규화 OHLCV/시각·가설·기간·비용/label/data_kind에 결합하며 caller의
+history.sha256을 인증하지 않는다. data_kind=historical도 실제자료 인증이 아니고 결과는
+항상 insufficient/출처동등성·선정독립·운영승인·신규주문false다. 결과/회계는 private 자료다.
+기존 SMA_RULE/명세·validator RUNNERS/공통비교/holdout·Paper/후보핀·운영 전략을 변경하거나
+성과 우열/자동 승격을 주장하지 않는다. 실제 자금·손실/포지션 한도 설정도 아니다.
+
 ## 뉴스 관측의 오프라인 전달 — 저장·수집 미연결
 
 ④의 `fed_observation_codec`은 한 FedObservation을 closed `fed_observation_json_v1`
