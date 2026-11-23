@@ -7,6 +7,11 @@
 파일/시계/콜백/전송 전에 무조건 거부한다. 환경변수/인증/CI 예외가 없다. 과거 순수 해석과
 불변 journal 읽기는 보존하되 새 연구에서 사용하지 않는다. 외부 연결 구현의 물리적 제거와
 CLI의 남은 역사 imports 정리는 다음 저위험 단계다. 독립 Paper Worker/runtime는 유지한다.
+public_discovery에서는 차단 뒤 외부 callback/search/detail·timeout·주간 claim·새 attempt/
+handoff 작성 본문을 물리 제거했다. run_public_discovery의 async 시그니처와 무조건
+차단만 남으며 순수 _project/정규화·DiscoveryBatch·기존 private journal reader/저장
+형식은 보존한다. 새 수집·후보 등록/자동 승격은 없다. 다른 외부 경계와 CLI imports의
+물리 제거는 여전히 별도 후속이며 전체 제거 완료가 아니다.
 
 A: 다음 거래일 Paper 체결·원장/중복·재시작/재부팅/백업·복구 검증.
 B: 플랫폼 독립 후보 탐색·동등 조건 백테스트/워크포워드/표본외 → 사전 기준·안전 게이트·
