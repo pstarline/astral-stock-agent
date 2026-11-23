@@ -54,6 +54,12 @@ preflight_and_record는 같은핀 협조잠금 안에서 저장의도 읽기·�
 unknown으로 재복원되므로 관측/대조 연동 전 후속의도는 차단한다. raw record는 여전히
 metadata 기록일 뿐 주문허가가 아니며 직접파일writer/다른저장소·실제관측 인증은 제외된다.
 
+broker_observation_pages는 caller가 선언한 모의 페이지 전체를 검증한 뒤 기존 불변
+OrderBook/apply_observation으로 한 번에 반영한다.16페이지/1024행 한도·scope/query/
+cursor 연속성과 명시 종료·중복/상충을 검사하며 실패는 원 book을 보존한다. 빈/누락행은
+unknown 해소나 무주문 증명이 아니다. 모든 전송승인false이며 공식 응답 스키마/계좌 진위·
+시각/전역 완전성·영속 대조/잠금/운영 연결은 미구현이다. journal을 해제하지 않는다.
+
 ## 현재 운영 보호
 
 자체 엔진이 실행·가상 체결·원장·손익을 계산한다. 네이버 호스트는 검토 이미지3a8213a로
