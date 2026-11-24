@@ -1,5 +1,43 @@
 # 개발 상태 — 2026-11-24 (한국 시간)
 
+## 최신 실행 — ① 별도 private 관측 근거 저장·읽기
+
+- Public main3ce0951/최신 AGENTS·STATUS·PR0·mainCI45302044752 success·이슈17/54/57/68
+  선점/② PR95 인계종료7119936083을 확인했다. 새 서버 출력/수신 확인은 없고 A 실제 운영은
+  미검증이다. 이슈68/7120712059에 담당①/기준/브랜치/신규2파일·공통3문서 범위를 선점,
+  main/겹침 재확인 후 work/role1-observation-store-20261124에 격리했다. 댓글은 잠금이 아니다.
+- broker_observation_store는 기존 checked POSIX 읽기/write-once/fsync·codec을 재사용한다.
+  명시 준비된 별도 private 디렉터리·모드/scope핀·닫힌 base64/지문 envelope·최대32기록/
+  각700000bytes/원 payload512000bytes·동일키 불변을 구현했다. 다른 namespace/모드/범위,
+  손상/부분 envelope·권한/링크/키경로 위반은 고정 오류이며 흔적을 보존한다. 다른 기록의
+  inventory는 envelope/키/바이트 검사이며 원 book/관측 의미 전체를 재구성·인증하지 않는다.
+- 한 저장소 directory inode에 비차단 flock을 걸고 진입/종료에 checked 핀과 디렉터리
+  identity를 검증한다. 협조 메서드만 조율하며 직접 writer/다른 저장소/intent journal·계좌
+  전체 원자성은 아니다. raw record/read는 큐·자동 재전송/재시도가 아니다. 쓰기/sync 실패
+  후 파일을 삭제/수리하지 않는다. 파일 읽기는 과거 성공 응답/영속 계좌commit 증명이 아니다.
+- read에는 정확한 원 book/query를 caller가 다시 제공해야 하며 private pages만 돌려준다.
+  각 결과는 reconciliation_required=True/order_submission_approved=False다. 원 book/
+  주문 상태 자동복원·intent unknown 해제·preflight/Worker/API·계좌·운영 연결은 없다.
+  기존 Paper/가격/Outbox/control/intent 형식·모듈은 변경하지 않고 저장소를 전용하지 않는다.
+- 이슈68/7119706243의① 별도 합성2종(paper/live)은 부분1 기준의 다음 부분2 관측 bytes가
+  재시작 unknown book에서 거부되고 정확한 이전기준에서만 수용됨을 확인했다. codec은 원
+  book 자체를 저장하지 않으므로 근거 보존과 상태복구를 구분한다.②7119936083은 이 경계를
+  수용했지만 probe를 재실행한 독립 복구 검증은 아니다. 최초기준/의도 inventory·관측 순서/
+  이전체인·영속 commit/복구 검증 전 preflight/journal 해제에 연결하지 않는다.
+- 로컬 Python3.12.14 관련179개·전체2152개/133subtests 통과(기존 pandas경고4).
+  신규25개는 paper/live 불변 재처리/다른기준·scope/query/내용 충돌·키/비공개 오류·기록상한,
+  부분/손상·권한/링크·모드/키경로 변조·fsync 실패 흔적/권한false·동일키 경합·별도 프로세스
+  재시작 읽기/비차단 잠금·기존intent namespace 비전용을 합성 확인했다. 실제 운영 자료/
+  비밀/API/계좌/시세/Telegram은 사용하지 않았다. compileall/공백·제한민감패턴5파일과
+  오류/동시성·부분실패·권한/정보노출 별도 자체 검토를 수행한다. 외부 독립 리뷰는 미수행이며
+  ②에 제한 소비검토 요청 후 회신 전 병합 보류한다. 최종head 원격 단일3.11 CI는 별도 확인한다.
+- 이번 코드는 관측 근거 record/read일 뿐 전체 영속 상태복구/대조·브로커/실계좌 완성이 아니다.
+  서버배포/이미지/전략/수집/운영설정·실가격/원장/Outbox/control/본문/해시·인증/주문·Telegram
+  접근/변경/재전송없음. A 실제체결/중복·재부팅복구, B 실제표본외/WFO/forward,C 전체인증
+  대조/어댑터,D 승인실거래 미완료·전송승인false 유지. 다음은 실제운영출력/대기PR·②저장
+  검토 우선, 이후 최초기준/의도 inventory·순서/commit 연결의 작은 후속. 새 사용자결정없음·
+  사용량/모델고정 미확인·기존① 예약조회만/타예약 미변경. main병합은 서버배포가 아니다.
+
 ## 최신 실행 — ① 주문 관측의 기준 상태 연결·폐쇄형 bytes 계약
 
 - Public main61baa5e/최신 AGENTS·STATUS·열린PR0·main CI45138866978 success 및
