@@ -182,3 +182,105 @@ def test_old_store_namespace_is_rejected_without_mutation(tmp_path,monkeypatch):
     before=snapshot(path)
     with pytest.raises(ObservationStoreError):open_store(path,initialize=True)
     assert snapshot(path)==before
+
+
+def two_steps(s, mode='paper'):
+    from astral_stock_agent.broker_observation_pages import apply_observation_pages
+    original=baseline(mode)
+    first=chain(mode)
+    record(s,'one',book=original,pages=first)
+    partial=apply_observation_pages(original,query_digest=QUERY,pages=first)
+    second=(replace(first[0],query_digest='c'*64,next_cursor=None,observations=(
+        replace(first[0].observations[0],filled_quantity=2),)),)
+    s.record('two',book=partial,query_digest='c'*64,pages=second)
+    expected=apply_observation_pages(partial,query_digest='c'*64,pages=second)
+    return original,expected,(('one',QUERY),('two','c'*64))
+
+
+@pytest.mark.parametrize('mode',['paper','live'])
+def test_declared_chain_replays_under_one_lock_without_writes_or_authority(tmp_path,monkeypatch,mode):
+    monkeypatch.delenv('GITHUB_ACTIONS',raising=False)
+    path=tmp_path/'sequence';path.mkdir(mode=0o700)
+    s=open_store(path,mode=mode,initialize=True)
+    original,expected,steps=two_steps(s,mode)
+    before=snapshot(path);records=original.records
+    def forbid(*args,**kwargs):raise AssertionError('replay must not write or sync')
+    monkeypatch.setattr(s._storage,'_write_once',forbid)
+    monkeypatch.setattr(s._storage,'_sync',forbid)
+    result=s.read_chain(book=original,steps=steps)
+    assert result.book==expected and result.book.records[1] is original.records[1]
+    assert original.records is records and records[0].status=='unknown'
+    assert result.reconciliation_required and not result.order_submission_approved
+    assert not result.book.order_submission_approved
+    assert s.read_chain(book=original,steps=steps)==result
+    assert 'broker1' not in repr(result) and 'first' not in repr(result)
+    assert snapshot(path)==before
+
+
+@pytest.mark.parametrize('bad',[
+    (),[],(None,),(('one',),),(('one',QUERY,'extra'),),
+    (('one',True),),(('../private-sentinel',QUERY),),
+    (('one',QUERY),('one',QUERY)),(('missing',QUERY),),
+    (('two','c'*64),('one',QUERY)),(('two','c'*64),),
+    (('one','d'*64),('two','c'*64)),(('one',QUERY),('two',QUERY)),
+    (('one',QUERY),('missing','c'*64)),tuple((str(i),QUERY) for i in range(MAX_RECORDS+1)),
+])
+def test_chain_failure_never_returns_partial_state_or_changes_storage(store,bad):
+    s,path=store;original,_,_=two_steps(s);records=original.records;before=snapshot(path)
+    with pytest.raises(ObservationStoreError) as error:s.read_chain(book=original,steps=bad)
+    assert str(error.value)==ERROR and 'private-sentinel' not in repr(error.value)
+    assert original.records is records and records[0].status=='unknown'
+    assert snapshot(path)==before
+
+
+def test_changed_baseline_and_bad_later_payload_do_not_publish_first_step(store):
+    import base64
+    from hashlib import sha256
+    s,path=store;original,expected,steps=two_steps(s)
+    with pytest.raises(ObservationStoreError):s.read_chain(book=expected,steps=steps)
+    p=s._path('two');envelope=json.loads(p.read_bytes())
+    payload=json.loads(base64.b64decode(envelope['observation_b64']))
+    payload['pages'][0]['observations'][0]['filled_quantity']=0
+    raw=json.dumps(payload).encode()
+    envelope.update(observation_b64=base64.b64encode(raw).decode(),payload_sha256=sha256(raw).hexdigest())
+    p.write_text(json.dumps(envelope));before=snapshot(path)
+    with pytest.raises(ObservationStoreError):s.read_chain(book=original,steps=steps)
+    assert original.records[0].status=='unknown' and snapshot(path)==before
+
+
+def test_chain_holds_lock_across_every_decode(store,monkeypatch):
+    s,path=store;original,_,steps=two_steps(s);decode=s._decode;calls=[]
+    def observe(*args):
+        with pytest.raises(ObservationStoreError):record(s,'concurrent')
+        calls.append(1)
+        return decode(*args)
+    monkeypatch.setattr(s,'_decode',observe)
+    s.read_chain(book=original,steps=steps)
+    assert len(calls)==2 and not s._path('concurrent').exists()
+
+
+def test_inventory_change_after_first_stage_is_rejected_and_trace_preserved(store,monkeypatch):
+    s,path=store;original,_,steps=two_steps(s);decode=s._decode;inserted=[]
+    def noncooperating(*args):
+        result=decode(*args)
+        if not inserted:
+            envelope=json.loads(s._storage._read(s._path('one')))
+            envelope['evidence_id']='unexpected'
+            s._storage._write_once(s._path('unexpected'),json.dumps(envelope).encode(),'conflict')
+            inserted.append(True)
+        return result
+    monkeypatch.setattr(s,'_decode',noncooperating)
+    with pytest.raises(ObservationStoreError):s.read_chain(book=original,steps=steps)
+    assert s._path('unexpected').is_file() and original.records[0].status=='unknown'
+
+
+def test_noop_declarations_cannot_prove_chronological_completeness(store):
+    s,path=store;original=baseline()
+    empty=(replace(chain()[1],request_cursor=None),)
+    record(s,'later',book=original,pages=empty)
+    record(s,'earlier',book=original,pages=empty)
+    # Both have the same baseline. The caller can omit or reverse them: no clock proof.
+    for steps in [(('later',QUERY),),(('later',QUERY),('earlier',QUERY))]:
+        result=s.read_chain(book=original,steps=steps)
+        assert result.book is original
+        assert result.reconciliation_required and not result.order_submission_approved

@@ -74,6 +74,11 @@ broker_observation_store는 별도 명시 준비된 private 디렉터리의 근�
 부분/손상 흔적 삭제·수리/재전송은 없고 읽기/파일 존재가 과거 성공 응답·인증/전체commit
 증명이 아니다. 각 결과는 대조필요/주문승인false다. 의도 inventory/관측 순서·최초기준과
 영속 상태 복구/대조·preflight/journal 해제·실제 운영 연결은 여전히 미완료다.
+read_chain은 명시 원book과 caller (id,query) 순서만으로 메모리 replay 진단을 수행한다.
+한 directory 협조잠금·전후 inventory 비교·기존 codec/reducer를 재사용하고 실패는 부분
+결과를 반환하지 않는다. read/record/저장포맷은 그대로다. 반환 book도 비공개/전송승인false,
+진단결과는 항상 대조필요다. 최초기준·실제순서/전체완전성·영속commit/복구 인증이 아니며
+동률/빈 관측은 누락·역순이어도 같은 기준일 수 있다. preflight/journal해제에 연결하지 않는다.
 
 자체 엔진이 실행·가상 체결·원장·손익을 계산한다. 네이버 호스트는 검토 이미지3a8213a로
 Worker 기동/waiting이 사용자 출력으로 확인됐다. 2026-11-21 사용자가 거래일11월20일의
