@@ -66,7 +66,14 @@ broker_observation_codec은 위 모의 페이지를 원 book 전체 내용/조�
 폐쇄형 JSON bytes로 왕복한다. 기존 페이지 검증을 인코딩/디코딩 양쪽에서 재사용하고
 결과는 페이지뿐이다. bytes/관측은 비공개이며 해시는 서명·출처/신선도·완전성 인증이 아니다.
 파일 저장/잠금·영속 대조/복구·journal unknown 해제나 preflight 연결을 추가하지 않는다.
-기존 의도 저장소와 다른 별도 근거 저장은 후속 과제이며 운영/전송승인은 계속false다.
+broker_observation_store는 별도 명시 준비된 private 디렉터리의 근거 record/read만 제공한다.
+기존 checked POSIX 읽기/write-once/fsync와 codec을 재사용하며 모드/scope핀·동일키 불변·
+최대32기록/700000bytes envelope·비차단 directory-inode flock으로 협조 접근을 제한한다.
+다른 저장소/계좌전체 잠금이 아니며 Paper/Outbox/control/intent 디렉터리를 전용하지 않는다.
+읽기에는 정확한 원 book/query가 필요하고 원 book/주문 상태를 자동 복원하지 않는다.
+부분/손상 흔적 삭제·수리/재전송은 없고 읽기/파일 존재가 과거 성공 응답·인증/전체commit
+증명이 아니다. 각 결과는 대조필요/주문승인false다. 의도 inventory/관측 순서·최초기준과
+영속 상태 복구/대조·preflight/journal 해제·실제 운영 연결은 여전히 미완료다.
 
 자체 엔진이 실행·가상 체결·원장·손익을 계산한다. 네이버 호스트는 검토 이미지3a8213a로
 Worker 기동/waiting이 사용자 출력으로 확인됐다. 2026-11-21 사용자가 거래일11월20일의

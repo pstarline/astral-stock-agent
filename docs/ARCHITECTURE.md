@@ -25,6 +25,30 @@ D: 별도 명시 승인 후만 자격증명/계좌 연결·자금·일일 손실
 사용 중인 증권사 이름으로 API 지원을 추정하지 않는다. 공식 지원 불명확 시 비밀 없는 모의
 계약/테스트만 가능하며 연결하지 않는다. 전략 승격 권한과 주문 권한은 분리한다.
 
+## 관측 근거 저장 — 주문 상태 복구와 분리
+
+`broker_observation_store.PrivateObservationStore`는 caller가 명시 준비한 별도 private
+POSIX 디렉터리만 쓴다. IndependentPaperLedger의 checked read/write-once/file+directory
+fsync와 기존 codec을 재사용하며 Paper/Outbox/control/intent 기록은 읽거나 바꾸지 않는다.
+최초 initialize는 빈 디렉터리에서만 scope핀을 준비한다. 모드/scope 충돌·다른 namespace·
+불완전/잘못된 envelope·권한/링크·키 경로 불일치를 고정 오류로 거부하고 흔적을 보존한다.
+최대32개 envelope(각700000bytes), payload512000bytes 한도다. 닫힌 envelope의 base64와
+내용 지문은 내부 바이트 일치 검사이며 서명/출처 인증이 아니다. inventory는 envelope/
+키/범위/바이트 검증이고 다른 기록의 원 book을 재구성하거나 모든 관측 의미를 검증하지 않는다.
+
+record/read는 매번 directory inode에 비차단 flock을 걸고 checked scope핀/디렉터리 identity를
+진입/종료에 검증한다. 협조 메서드의 한 저장소 접근만 조율하며 직접 writer·다른 디렉터리/
+intent journal/계좌 전체와 원자적이지 않다. 같은 키/정확 내용은 불변 재처리, 다른 내용은
+충돌이다. 생성/쓰기/sync/후검증 실패 후 남은 파일을 삭제하거나 자동 재초기화하지 않는다.
+파일이 온전히 읽혀도 과거 호출의 성공 응답/실제 물리 디스크 복구/계좌 commit을 증명하지 않는다.
+
+read에는 원 book/query를 다시 제공해야 하며 반환은 private pages와 created뿐이다.
+reconciliation_required=True/order_submission_approved=False는 항상 유지한다.
+codec은 원 book 자체를 저장하지 않는다. 부분1 기준의 다음 관측을 재시작 unknown book에
+바로 적용하는 것은 거부된다(① 이슈68/7119706243 합성2종). 기준/의도 inventory·관측 순서/
+이전 체인·영속 commit/복구를 별도 검증하기 전 preflight/journal 해제에 연결하지 않는다.
+실제 저장 활성화/API/계좌/운영 연결·전체 브로커 대조 구현이 아니다.
+
 ## 주문 관측 직렬화 — 기준 book 내용에 묶인 비공개 모의 계약
 
 `broker_observation_codec`은 기존 페이지 검증과 canonical JSON/중복키 검사를 재사용한다.
@@ -37,9 +61,10 @@ encode/decode 양쪽에서 전체 체인과 기존 reducer의 상태 제약을 �
 decode는 검증된 페이지 tuple만 반환하고 원 book을 수정하거나 승인 book을 복원하지 않는다.
 내부 모순이 없는 다른 관측 선언은 통과할 수 있다. 내용 지문은 서명이 아니며 출처/실제 체결·
 신선도/시각·스냅샷/전역 완전성 인증으로 사용할 수 없다. 출력 bytes는 식별자를 포함한 비공개
-자료이며 로그/Public에 넣지 않는다. 파일/시계/통신/계좌·저장/잠금/영속 상태 대조와
-journal 해제/preflight/Worker 연결은 없다. 별도 private 근거 저장·부분실패/동시성·복구는
-후속 구현이며 기존 Paper/Outbox/control/intent 저장소를 전용하거나 검사 완화하지 않는다.
+자료이며 로그/Public에 넣지 않는다. codec 자체의 파일/시계/통신/계좌·저장/잠금/영속 상태
+대조·journal 해제/preflight/Worker 연결은 없다. 별도 근거 저장은 위 모듈에 분리했으며
+전체 영속 상태 복구는 후속이다. 기존 Paper/Outbox/control/intent 저장소를 전용하거나
+검사 완화하지 않는다.
 
 ## 주문 관측 페이지 — 오프라인 전체 검증 후 불변 반영
 
