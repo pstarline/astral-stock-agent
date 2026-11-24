@@ -25,6 +25,22 @@ D: 별도 명시 승인 후만 자격증명/계좌 연결·자금·일일 손실
 사용 중인 증권사 이름으로 API 지원을 추정하지 않는다. 공식 지원 불명확 시 비밀 없는 모의
 계약/테스트만 가능하며 연결하지 않는다. 전략 승격 권한과 주문 권한은 분리한다.
 
+## 주문 관측 직렬화 — 기준 book 내용에 묶인 비공개 모의 계약
+
+`broker_observation_codec`은 기존 페이지 검증과 canonical JSON/중복키 검사를 재사용한다.
+encode/decode 양쪽에서 전체 체인과 기존 reducer의 상태 제약을 검사한다. 512000bytes,
+16페이지/1024행의 닫힌 JSON 형식이며 중복/추가/누락 필드·비유한 값·과대/깊은 입력을
+고정 오류로 거부한다. baseline_digest는 모든 의도와 직전 상태/체결량/broker ID를 포함한
+원 OrderBook 전체 내용이다. 페이지에 없는 주문도 묶이며 Decimal 표기와 record 순서까지
+정확히 같은 기준을 요구한다. query 지문도 caller 문맥과 대조한다.
+
+decode는 검증된 페이지 tuple만 반환하고 원 book을 수정하거나 승인 book을 복원하지 않는다.
+내부 모순이 없는 다른 관측 선언은 통과할 수 있다. 내용 지문은 서명이 아니며 출처/실제 체결·
+신선도/시각·스냅샷/전역 완전성 인증으로 사용할 수 없다. 출력 bytes는 식별자를 포함한 비공개
+자료이며 로그/Public에 넣지 않는다. 파일/시계/통신/계좌·저장/잠금/영속 상태 대조와
+journal 해제/preflight/Worker 연결은 없다. 별도 private 근거 저장·부분실패/동시성·복구는
+후속 구현이며 기존 Paper/Outbox/control/intent 저장소를 전용하거나 검사 완화하지 않는다.
+
 ## 주문 관측 페이지 — 오프라인 전체 검증 후 불변 반영
 
 `broker_observation_pages`의 OrderObservation/ObservationPage는 공급자 API가 아닌 로컬
