@@ -16,7 +16,8 @@ import os
 from .broker_observation_codec import (
     MAX_BYTES, _reject_constant, decode_observation_pages, encode_observation_pages,
 )
-from .broker_order_state import OrderBook, _identifier
+from .broker_observation_pages import apply_observation_pages
+from .broker_order_state import OrderBook, _identifier, _scope
 from .independent_ledger import IndependentPaperLedger, _canonical, _unique
 
 
@@ -54,13 +55,27 @@ class StoredObservation:
         return False
 
 
+@dataclass(frozen=True)
+class ObservationReplay:
+    book: OrderBook = field(repr=False)
+
+    @property
+    def reconciliation_required(self):
+        return True
+
+    @property
+    def order_submission_approved(self):
+        return False
+
+
 class PrivateObservationStore:
     """Explicit empty-directory bootstrap; no mkdir, repair, cleanup or retries.
 
     At most 32 immutable records. A nonblocking directory-inode flock coordinates
     this store's methods only; it does NOT lock other stores or account exposure.
     Existing Paper/Outbox/control/intent directories must never be used here.
-    All returned pages/asdict/bytes remain private. No book is reconstructed.
+    All returned pages/asdict/bytes remain private. No baseline is reconstructed;
+    read_chain stages diagnostic state only from a caller's explicit baseline.
     """
 
     def __init__(self, directory, *, mode, scope_digest, initialize=False):
@@ -179,3 +194,35 @@ class PrivateObservationStore:
         if key != evidence_id or verified != payload:
             raise ValueError
         return StoredObservation(decoded, created)
+
+    @_guarded
+    def read_chain(self, *, book, steps):
+        """Stage a DECLARED sequence from an explicit original baseline.
+
+        No writes or automatic ordering, baseline reconstruction, persisted
+        commit, origin/time/coverage proof, journal unlocking or preflight input.
+        Cooperating access is excluded only in this directory. Two inventory
+        passes can detect some direct changes, not authenticate history or fence
+        a caller after returning. Failure never publishes a partially staged book.
+        """
+        if (type(book) is not OrderBook
+                or (book.mode, book.scope_digest) != (self._mode, self._scope)
+                or type(steps) is not tuple or not 0 < len(steps) <= MAX_RECORDS):
+            raise ValueError
+        seen = set()
+        for step in steps:
+            if (type(step) is not tuple or len(step) != 2
+                    or not _identifier(step[0]) or not _scope(step[1]) or step[0] in seen):
+                raise ValueError
+            seen.add(step[0])
+        records = self._inventory()
+        staged = book
+        for key, query_digest in steps:
+            payload = records.get(key)
+            if payload is None:
+                raise ValueError
+            pages = self._decode(payload, staged, query_digest)
+            staged = apply_observation_pages(staged, query_digest=query_digest, pages=pages)
+        if self._inventory() != records:
+            raise ValueError
+        return ObservationReplay(staged)

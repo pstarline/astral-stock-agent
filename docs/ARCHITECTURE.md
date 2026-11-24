@@ -49,6 +49,22 @@ codec은 원 book 자체를 저장하지 않는다. 부분1 기준의 다음 관
 이전 체인·영속 commit/복구를 별도 검증하기 전 preflight/journal 해제에 연결하지 않는다.
 실제 저장 활성화/API/계좌/운영 연결·전체 브로커 대조 구현이 아니다.
 
+`read_chain(book=..., steps=((evidence_id, query_digest), ...))`은 명시 기준에서 메모리
+replay만 진단한다. 1..32개 고유id/정확 query를 요구하고 한 directory 잠금 안에서 inventory를
+읽어 각 codec baseline을 직전 staged book과 대조한 뒤 기존 불변 reducer로 반영한다.
+누락/중복키·역순/잘못된 기준·query·후단 상충/실패는 부분 book을 반환하지 않는다. 전후
+inventory 내용이 다르면 흔적을 보존하며 거부한다. 파일 쓰기/sync·순서 자동선정은 없다.
+ObservationReplay.book은 비공개·승인false이고 wrapper도 항상 대조필요/승인false다.
+caller 순서와 원book은 선언일 뿐이다. 상태를 바꾸지 않는 빈/동일 관측은 같은 기준을
+공유할 수 있어 역순/일부 누락이 통과할 수 있다. 이를 실제시간/전역완전성·최초기준 진위·
+durable commit/계좌대조 인증으로 쓰지 않는다. 직접writer의 과거/양조회 사이 모든변경이나
+반환 이후를 fence하지 않으며 journal/preflight/운영에 연결하지 않는다. 전체복구는 미완료다.
+
+① 이슈68/7122569316의 공식 검색색인 조사는 토스 공개기본 미국수수료10bp와 기존
+연구5bp가 다름을 확인했다. 최종 계좌요율·제비용/환전·별도 API고정료는 미확인이며
+연구설정/운영비용을 자동 변경하지 않는다. 시세/키 이용권한을 역할간 공유 허가로 확대하지
+않는다. 공식 출처/조회 한계는 이슈에 보존했고 실제 계좌/API 신청·연결은 하지 않았다.
+
 ## 주문 관측 직렬화 — 기준 book 내용에 묶인 비공개 모의 계약
 
 `broker_observation_codec`은 기존 페이지 검증과 canonical JSON/중복키 검사를 재사용한다.
